@@ -1,7 +1,7 @@
 # ReelForge
 
 > 一个「会自己搭流程」的 macOS AI 视频制作工作台。用户用自然语言描述意图，Agent 负责把繁琐的
-> ComfyUI 工作流搭好、调好参数、跑起来，并全程把进度 / 中间产物 / 预览喂回给用户；用户随时可切到
+> ComfyUI 工作流搭好、调好参数、跑起来，并全程把进度 / 中间产物 / 预览喂回给用户；用户随时可钻进
 > 技术层画布手动微调。面向「AI 视频入门」与「生产力工具」双场景，专注**有剧情的角色叙事视频**。
 
 > 名字 `ReelForge` 只是占位，随时可改。
@@ -42,11 +42,12 @@ Agent、画布直接操作、对话都只是同一份数据的「操作端」，
 | [docs/mockups.md](docs/mockups.md) | 关键界面视觉稿（SVG 线框：对话/选片/角色库 + 导演层→技术层两层视图） |
 | [docs/roadmap.md](docs/roadmap.md) | 里程碑、MVP 垂直切片、未决问题 |
 | [docs/native-ui.md](docs/native-ui.md) | macOS 原生 UI 核心问题；**①+④ 协同、②+③ 双层视图已对齐 v0.1**，第三层待讨论 |
+| [docs/open-questions.md](docs/open-questions.md) | **编码就绪度**：还太模糊、需拍板/外部事实才能开工的待定问题 |
 
 ## 下一步
 
 1. 完整方案已成形（本仓库）。
-2. 讨论 macOS 原生 UI 设计核心问题（见 [docs/native-ui.md](docs/native-ui.md)）：
-   **①+④ Agent×画布协同、②+③ 双层视图（导演层制片管理 → 技术层任务 flow）已对齐 v0.1**；
-   继续推进第三层（反馈信息架构、一致性呈现）。
-3. 之后从 M1（Orchestrator PoC）起步实现。
+2. 原生 UI：**①+④ Agent×画布协同、②+③ 双层视图（导演层制片管理 → 技术层任务 flow）已对齐 v0.1**
+   （见 [docs/native-ui.md](docs/native-ui.md)）；第三层（反馈信息架构、一致性呈现）待续。
+3. **编码就绪度盘点**见 [docs/open-questions.md](docs/open-questions.md)：先解锁 5090 环境清单、一致性选型、
+   持久化与 IR 保真范围，再从 M1（Orchestrator PoC）起步实现。
