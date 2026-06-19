@@ -53,7 +53,8 @@ Project（一支片子）
 ```
 
 设计约束：
-- IR 必须能**无损往返** ComfyUI 的 API 格式（导出→执行→回读不丢信息）。
+- **保真范围（已定）**：以 ComfyUI 执行用的 `prompt` 格式为事实来源，能**无损往返**（导出→执行→回读不
+  丢信息）；另存每个节点的 `pos` 供画布布局。`workflow` 的 reroute / group / note 暂不支持（后置）。
 - IR 节点的合法性由 ComfyUI `/object_info` 的真实 schema 校验（见 agent-system.md）。
 - 云生成任务在 IR / 项目级用**虚拟节点**表示（如 `CloudVideo(provider=jimeng, ...)`），由 Orchestrator
   的云适配器解释执行，不进 ComfyUI 图。
@@ -62,3 +63,9 @@ Project（一支片子）
 
 - 每次运行的产物（图/视频/中间预览）留档并挂在对应 Shot/take 上，可对比、回滚。
 - ComfyUI 的缓存机制天然支持「改了下游参数只重算受影响节点」，IR 设计需保留节点稳定 id 以命中缓存。
+
+## 4. 持久化形态（已定）
+
+一个项目 = **一个文件夹**：`project.json`（meta + Character Bible / 资产元数据 + Shots + 每镜头 Graph IR）
++ 媒体文件（图 / 视频 / 中间预览）+ 缩略图。理由：可移植、易备份、对 Git 友好、天然支撑「导出工程」。
+大媒体单独落盘、元数据走 JSON；`asset_id` 与节点 `id` 用稳定标识，以命中缓存并支撑跨版本引用。

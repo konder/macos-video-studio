@@ -25,19 +25,13 @@
 [roadmap.md](roadmap.md) 未决 #1：走**官方 API** 还是仅网页端？仅网页端则云方案要换思路（影响 M6）。
 Qwen 通义万相（DashScope）有官方 API，相对明确。需要你确认 / 我去查即梦 API 的可用性、鉴权、submit/poll、计费。
 
-### A4. 项目持久化形态（影响一切存储）
-[data-model.md](data-model.md) 定义了结构，但没定**怎么存**。两条路：
-- **(建议) 项目 = 一个文件夹**：`project.json`（含 Shots / 资产元数据 / Graph IR）+ 媒体文件 + 缩略图。
-  可移植、易备份、对 Git 友好、便于「导出工程」。
-- DB（SQLite）：查询/并发更强，但可移植性、人读性差。
-- 我倾向文件夹方案（媒体大文件单独放、元数据 JSON）。**待确认。**
+### A4. 项目持久化形态 —— ✅ 已定（2026-06）
+**项目 = 一个文件夹**：`project.json`（Shots / 资产元数据 / Graph IR）+ 媒体文件 + 缩略图。
+可移植、易备份、对 Git 友好、便于「导出工程」。详见 [data-model.md](data-model.md) §4。
 
-### A5. Graph IR ↔ ComfyUI 往返保真范围
-[data-model.md](data-model.md) 要求「无损往返」，但 ComfyUI 有两种格式：执行用的 `prompt`（`{id:{class_type,inputs}}`）
-与 UI 的 `workflow`（含 `pos` / `widgets_values` / reroute / group / note）。要定 IR 覆盖到哪：
-- **(建议) MVP：以 `prompt` 格式为事实来源 + 额外存 `pos` 给画布布局**；reroute/group/note 暂不支持。
-- 完整 `workflow` 保真（含分组/注释/reroute）成本高，后置。
-- **待确认**保真范围（决定 IR 复杂度与画布能力）。
+### A5. Graph IR ↔ ComfyUI 往返保真范围 —— ✅ 已定（2026-06）
+**以 `prompt` 格式为事实来源 + 额外存 `pos` 给画布布局**；`workflow` 的 reroute / group / note 暂不支持
+（后置）。详见 [data-model.md](data-model.md) §2。
 
 ---
 
@@ -65,7 +59,7 @@ Qwen 通义万相（DashScope）有官方 API，相对明确。需要你确认 /
 ## 建议的最快解锁顺序
 
 1. **盘点 5090 环境**（A1）——一切下游的前提。
-2. **定持久化 + IR 保真范围**（A4 / A5，我出草案，你拍板）。
+2. ~~定持久化 + IR 保真范围（A4 / A5）~~ —— ✅ 已定。
 3. **M1 PoC**：单 Agent → 选配方 → validate → 出一张人物定稿图（用 A1 的真实 ComfyUI）。
 4. **一致性 spike**（A2）：验证 1 套 identity + 基模组合的跨链一致性——最大风险尽早证伪。
 5. 之后按 roadmap M2→M6 推进；A3（即梦）在 M6 前定。
