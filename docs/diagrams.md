@@ -7,8 +7,8 @@ GitHub 原生渲染下方 Mermaid 图。涵盖架构、制作管线、Agent 循�
 ```mermaid
 flowchart TB
   subgraph Mac["Mac 客户端 (SwiftUI)"]
-    chat["Chat / Agent 侧栏"]
-    canvas["无限画布<br/>项目层 ⇄ 工作流层"]
+    chat["Chat / Agent 侧栏（滑块）"]
+    canvas["导演层（制片管理）<br/>⇄ 技术层（任务 flow）"]
     ir["Project / Graph IR<br/>唯一事实来源"]
     chat --- ir
     canvas --- ir

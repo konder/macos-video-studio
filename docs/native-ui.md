@@ -43,8 +43,8 @@ Agent 不是特殊角色,而是「碰巧由 LLM 驱动的那个操作端」。�
 人在画布上的手势,与 Agent 的工具调用,产出**同一种东西**——一段对 IR 的有序操作(ops),即
 [api-contract.md](api-contract.md) 的 `graph_patch`。
 
-- 项目层 op:`create_shot` / `assign_asset` / `set_meta` …
-- 图层 op:`add_node` / `delete_node` / `connect` / `set_param` / `set_pos` …
+- 项目级 op(导演层):`create_shot` / `assign_asset` / `set_meta` …
+- 图 op(技术层):`add_node` / `delete_node` / `connect` / `set_param` / `set_pos` …
 
 一个「变更(change)」= 一串 ops + 元数据:`author`(`human` | `agent`)、时间戳、(Agent 的)
 `rationale`(「为什么这么搭」)、来源 `tool_call`。因为人和 Agent 产出**同构**的变更,undo、diff、
@@ -85,7 +85,7 @@ stateDiagram-v2
 
 ### 4. 并发与接管:以「镜头」为锁粒度
 
-工作流层是「钻进单个镜头的聚焦子画布」,故锁 / 回合粒度 = **镜头**:
+技术层是「钻进单个镜头/任务的执行 flow」,故锁 / 回合粒度 = **镜头**:
 
 ```mermaid
 stateDiagram-v2
@@ -103,7 +103,7 @@ stateDiagram-v2
   Proposed,可续跑或弃掉。
 - **不做真并发合并(CRDT)**:单镜头任意时刻只有一个 actor 持笔(细粒度回合制)——对「单人 +
   其 Agent」是正确的复杂度。**跨镜头自由并行**(Agent 渲染镜头 3 时人改镜头 5);导演 Agent 跨镜头
-  计划时按触及顺序逐镜头持笔,项目层显示哪些镜头被本次 run 排队 / 占用。
+  计划时按触及顺序逐镜头持笔,导演层显示哪些镜头被本次 run 排队 / 占用。
 
 ### 5. 统一历史 / 撤销(兼任可解释日志)
 

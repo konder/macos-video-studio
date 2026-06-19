@@ -71,7 +71,7 @@
   <rect x="262" y="552" width="120" height="32" rx="9" fill="#0a84ff"/><text x="322" y="573" font-size="12.5" fill="#fff" text-anchor="middle" font-weight="600">选用 #3</text>
   <rect x="392" y="552" width="120" height="32" rx="9" fill="#ffffff" stroke="#c7c7cf"/><text x="452" y="573" font-size="12.5" fill="#3a3a3c" text-anchor="middle">补帧 + 超分</text>
   <rect x="522" y="552" width="120" height="32" rx="9" fill="#ffffff" stroke="#c7c7cf"/><text x="582" y="573" font-size="12.5" fill="#3a3a3c" text-anchor="middle">再生成 2 条</text>
-  <text x="992" y="573" font-size="12" fill="#9a9aa0" text-anchor="end">选用后回到项目层 ▸</text>
+  <text x="992" y="573" font-size="12" fill="#9a9aa0" text-anchor="end">选用后回到导演层 ▸</text>
 
   <!-- compare panel -->
   <rect x="246" y="612" width="762" height="160" rx="10" fill="#ffffff" stroke="#e3e3e9"/>

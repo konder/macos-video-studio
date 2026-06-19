@@ -28,7 +28,7 @@ Project（一支片子）
 要点：
 - **资产是可复用、可锁定的一等公民**。角色档案（Character）是一致性的核心载体，详见
   [agent-system.md](agent-system.md) 的一致性方案。
-- **每个 Shot 自带一张 Graph IR**，既是它的「生成配方实例」，也是钻进工作流层画布时的编辑对象。
+- **每个 Shot 自带一张 Graph IR**，既是它的「生成配方实例」，也是从导演层钻进**技术层**画布时的编辑对象。
 - **takes 保留完整元数据**，支撑选片对比、复现、回滚、「基于这次再改」。
 
 ## 2. Graph IR
@@ -55,7 +55,7 @@ Project（一支片子）
 设计约束：
 - IR 必须能**无损往返** ComfyUI 的 API 格式（导出→执行→回读不丢信息）。
 - IR 节点的合法性由 ComfyUI `/object_info` 的真实 schema 校验（见 agent-system.md）。
-- 云生成任务在 IR / 项目层用**虚拟节点**表示（如 `CloudVideo(provider=jimeng, ...)`），由 Orchestrator
+- 云生成任务在 IR / 项目级用**虚拟节点**表示（如 `CloudVideo(provider=jimeng, ...)`），由 Orchestrator
   的云适配器解释执行，不进 ComfyUI 图。
 
 ## 3. 版本与产物
