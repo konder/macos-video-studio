@@ -43,6 +43,7 @@ Agent、画布直接操作、对话都只是同一份数据的「操作端」，
 | [docs/roadmap.md](docs/roadmap.md) | 里程碑、MVP 垂直切片、未决问题 |
 | [docs/native-ui.md](docs/native-ui.md) | macOS 原生 UI 核心问题；**①+④ 协同、②+③ 双层视图已对齐 v0.1**，第三层待讨论 |
 | [docs/open-questions.md](docs/open-questions.md) | **编码就绪度**：还太模糊、需拍板/外部事实才能开工的待定问题 |
+| [docs/env-survey.md](docs/env-survey.md) | 5090 ComfyUI 环境调研清单（A1，交给 agent 执行回填） |
 
 ## 下一步
 
