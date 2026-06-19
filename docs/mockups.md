@@ -37,3 +37,30 @@ diff 卡片呈现；右侧节点检查器，所有取值对照 `/object_info` �
 相似度阈值）——一致性的核心载体；下方显示被哪些镜头引用，改动后可一键重生成受影响镜头。
 
 ![Character Bible](mockups/05-character-bible.svg)
+
+---
+
+## 原生 UI 第二层示意图（双层画布导航 + 渲染架构，讨论中）
+
+以下三张图配合 [native-ui.md](native-ui.md) 第二层的讨论，把抽象的导航/渲染机制画清楚。
+
+### 6. 双层导航：架构「钻入」· 手感「缩放」
+
+项目层（角色/资产/镜头 tile + 引用连线）双击镜头 → zoom-to-enter 动画进入该镜头的工作流层
+（单镜头 ComfyUI 图）；面包屑钻取栈、缩略地图、聚焦模式防迷路。任意时刻只实例化一个镜头的图。
+
+![双层导航](mockups/06-canvas-navigation.svg)
+
+### 7. 渲染架构：Metal 基底 + 可回收 SwiftUI 叠加池
+
+三层合成：①连线层（Metal/GPU）②全部节点的廉价代理（Metal，按 LOD）③仅对「视口内+近景+选中/编辑」
+的少量节点物化富 SwiftUI 视图（含原生控件/无障碍）。配视口剔除、quadtree 命中测试、高频反馈走 Metal 叠层。
+
+![渲染架构](mockups/07-render-architecture.svg)
+
+### 8. LOD 分级：缩放越近，细节越物化
+
+远景画色块代理、中景加接口/缩略、近景才物化完整节点（widget/接口/预览/diff）。LOD 是控渲染成本的主杠杆；
+双层结构让近景节点数有界。
+
+![LOD 分级](mockups/08-lod-tiers.svg)

@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 660" font-family="-apple-system, 'Helvetica Neue', Arial, 'PingFang SC', sans-serif">
+  <defs>
+    <marker id="a8" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#0a84ff"/></marker>
+  </defs>
+  <rect width="1280" height="660" rx="14" fill="#f7f7fa" stroke="#d6d6dd"/>
+  <text x="40" y="44" font-size="19" fill="#1a1a1a" font-weight="700">LOD 分级 — 缩放越近，细节越「物化」（也是控渲染成本的主杠杆）</text>
+  <text x="40" y="68" font-size="13" fill="#8a8a90">远景画廉价代理、近景才画完整节点；双层切分让节点数有界 → 同一份数据，不同精度</text>
+
+  <!-- ===== col 1: far ===== -->
+  <rect x="50" y="100" width="380" height="380" rx="11" fill="#fcfcfe" stroke="#e3e3e9"/>
+  <rect x="66" y="114" width="150" height="26" rx="8" fill="#eef0fb"/><text x="80" y="131" font-size="12" fill="#3a4ab0" font-weight="700">远景 · 缩放 &lt; 30%</text>
+  <text x="66" y="166" font-size="11.5" fill="#9a9aa0">只画色块 + 标题，连线细线</text>
+  <g stroke="#c7c7cf" stroke-width="1.5" fill="none">
+    <path d="M180 230 H250"/><path d="M310 245 H360 V300 H180 V285"/>
+  </g>
+  <rect x="110" y="220" width="70" height="20" rx="5" fill="#ffffff" stroke="#9aa6c0"/><rect x="110" y="220" width="70" height="20" rx="5" fill="#eef0fb" opacity="0.6"/><text x="118" y="234" font-size="9" fill="#3a4ab0">CLIPText</text>
+  <rect x="250" y="220" width="70" height="20" rx="5" fill="#ffffff" stroke="#9aa6c0"/><rect x="250" y="220" width="70" height="20" rx="5" fill="#e3f7e8" opacity="0.7"/><text x="258" y="234" font-size="9" fill="#1f8a44">KSampler</text>
+  <rect x="110" y="290" width="70" height="20" rx="5" fill="#ffffff" stroke="#9aa6c0"/><rect x="110" y="290" width="70" height="20" rx="5" fill="#eef0fb" opacity="0.6"/><text x="118" y="304" font-size="9" fill="#3a4ab0">VAEDec</text>
+  <rect x="66" y="430" width="100" height="22" rx="7" fill="#e3f7e8"/><text x="116" y="446" font-size="11" fill="#1f8a44" text-anchor="middle" font-weight="600">成本 低</text>
+
+  <!-- ===== col 2: mid ===== -->
+  <rect x="450" y="100" width="380" height="380" rx="11" fill="#fcfcfe" stroke="#e3e3e9"/>
+  <rect x="466" y="114" width="160" height="26" rx="8" fill="#eef0fb"/><text x="480" y="131" font-size="12" fill="#3a4ab0" font-weight="700">中景 · 30–70%</text>
+  <text x="466" y="166" font-size="11.5" fill="#9a9aa0">标题 + 接口点 + 缩略图（仍是 Metal 代理）</text>
+  <g stroke="#b9b9c4" stroke-width="2" fill="none"><path d="M580 250 C620 250 620 250 660 250"/></g>
+  <rect x="486" y="216" width="94" height="64" rx="8" fill="#ffffff" stroke="#c7c7cf"/>
+  <rect x="486" y="216" width="94" height="18" rx="8" fill="#eef0fb"/><text x="494" y="229" font-size="9.5" fill="#3a4ab0" font-weight="600">CLIPText</text>
+  <circle cx="580" cy="250" r="3" fill="#9aa6c0"/>
+  <rect x="494" y="242" width="78" height="30" rx="4" fill="#f0f0f4"/>
+  <rect x="660" y="208" width="110" height="80" rx="8" fill="#ffffff" stroke="#28c840" stroke-width="2"/>
+  <rect x="660" y="208" width="110" height="18" rx="8" fill="#e3f7e8"/><text x="668" y="221" font-size="9.5" fill="#1f8a44" font-weight="700">KSampler</text>
+  <circle cx="660" cy="250" r="3" fill="#9aa6c0"/>
+  <rect x="668" y="232" width="94" height="46" rx="5" fill="#1c1c22"/><circle cx="700" cy="255" r="9" fill="#3a3a46"/>
+  <rect x="466" y="430" width="120" height="22" rx="7" fill="#fff2d6"/><text x="526" y="446" font-size="11" fill="#9a6a10" text-anchor="middle" font-weight="600">成本 中</text>
+
+  <!-- ===== col 3: near ===== -->
+  <rect x="850" y="100" width="380" height="380" rx="11" fill="#fcfcfe" stroke="#e3e3e9"/>
+  <rect x="866" y="114" width="160" height="26" rx="8" fill="#dcecff"/><text x="880" y="131" font-size="12" fill="#0a5ad0" font-weight="700">近景 · &gt; 70%</text>
+  <text x="866" y="166" font-size="11.5" fill="#0a84ff">物化为富 SwiftUI 节点：widget / 接口 / 预览 / diff</text>
+  <!-- full node -->
+  <rect x="900" y="188" width="280" height="234" rx="10" fill="#ffffff" stroke="#0a84ff" stroke-width="2.5"/>
+  <rect x="900" y="188" width="280" height="28" rx="10" fill="#dcecff"/><rect x="900" y="202" width="280" height="14" fill="#dcecff"/>
+  <text x="916" y="207" font-size="12.5" fill="#0a5ad0" font-weight="700">KSampler · 执行中 ♿</text>
+  <!-- input sockets -->
+  <circle cx="900" cy="244" r="4" fill="#7a4ad0"/><text x="912" y="248" font-size="10" fill="#6a6a70">model</text>
+  <circle cx="900" cy="268" r="4" fill="#3a4ab0"/><text x="912" y="272" font-size="10" fill="#6a6a70">positive</text>
+  <circle cx="1180" cy="256" r="4" fill="#1f8a44"/><text x="1148" y="248" font-size="10" fill="#6a6a70" text-anchor="end">LATENT</text>
+  <!-- widgets -->
+  <text x="916" y="300" font-size="10.5" fill="#3a3a3c">steps</text>
+  <rect x="970" y="292" width="120" height="10" rx="5" fill="#e3e3e9"/><rect x="970" y="292" width="78" height="10" rx="5" fill="#0a84ff"/><text x="1100" y="301" font-size="10" fill="#6a6a70">25</text>
+  <!-- diff chip -->
+  <rect x="916" y="312" width="120" height="22" rx="6" fill="#fff2d6" stroke="#f0c869"/><text x="928" y="327" font-size="10" fill="#9a6a10">cfg 7 → 8 (Agent)</text>
+  <!-- latent preview -->
+  <rect x="916" y="344" width="248" height="56" rx="6" fill="#1c1c22"/>
+  <rect x="924" y="388" width="100" height="5" rx="2.5" fill="rgba(255,255,255,.25)"/><rect x="924" y="388" width="62" height="5" rx="2.5" fill="#28c840"/>
+  <text x="1040" y="378" font-size="9" fill="#8a8a90">latent 预览 · 12/25</text>
+  <rect x="866" y="430" width="130" height="22" rx="7" fill="#fde3e3"/><text x="931" y="446" font-size="11" fill="#b03a3a" text-anchor="middle" font-weight="600">成本 高（仅少量）</text>
+
+  <!-- zoom axis -->
+  <line x1="120" y1="540" x2="1180" y2="540" stroke="#0a84ff" stroke-width="2.5" marker-end="url(#a8)"/>
+  <text x="120" y="568" font-size="12" fill="#6a6a70">缩小（远）</text>
+  <text x="1180" y="568" font-size="12" fill="#6a6a70" text-anchor="end">放大（近）</text>
+  <circle cx="240" cy="540" r="5" fill="#0a84ff"/><circle cx="640" cy="540" r="5" fill="#0a84ff"/><circle cx="1010" cy="540" r="5" fill="#0a84ff"/>
+  <text x="640" y="596" font-size="12" fill="#1a1a1a" text-anchor="middle" font-weight="600">渲染成本随缩放分级 —— 远景便宜、近景才贵，且近景节点数被视口与双层结构限住</text>
+  <text x="640" y="624" font-size="11.5" fill="#9a9aa0" text-anchor="middle">项目层同理：镜头 远=色块 → 近=选中 take 海报 tile；资产 远=chip → 近=带引用徽标</text>
+</svg>
