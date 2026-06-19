@@ -1,124 +1,107 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 760" font-family="-apple-system, 'Helvetica Neue', Arial, 'PingFang SC', sans-serif">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 770" font-family="-apple-system, 'Helvetica Neue', Arial, 'PingFang SC', sans-serif">
   <defs>
     <pattern id="grid6" width="26" height="26" patternUnits="userSpaceOnUse">
       <path d="M26 0 H0 V26" fill="none" stroke="#e9e9ef" stroke-width="1"/>
     </pattern>
-    <marker id="arrow6" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto">
-      <path d="M0 0 L8 4 L0 8 z" fill="#0a84ff"/>
-    </marker>
+    <marker id="arrow6" markerWidth="12" markerHeight="12" refX="8" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 z" fill="#0a84ff"/></marker>
   </defs>
-  <rect width="1280" height="760" rx="14" fill="#f7f7fa" stroke="#d6d6dd"/>
-  <text x="40" y="44" font-size="19" fill="#1a1a1a" font-weight="700">双层画布导航 — 架构「钻入」· 手感「缩放」</text>
-  <text x="40" y="68" font-size="13" fill="#8a8a90">任意时刻只实例化「一个镜头」的工作流图 → 渲染有界、不迷路、锁粒度落在镜头</text>
+  <rect width="1280" height="770" rx="14" fill="#f7f7fa" stroke="#d6d6dd"/>
+  <text x="40" y="44" font-size="19" fill="#1a1a1a" font-weight="700">两层视图 — 导演层（制片管理，围绕分镜头）→ 技术层（单任务执行 flow）</text>
+  <text x="40" y="68" font-size="13" fill="#8a8a90">从任务出发：点某镜头的某个任务（如「生成」）钻进它的技术 flow，返回即回。无需远近 LOD。</text>
 
-  <!-- ============ LEFT: project layer ============ -->
-  <rect x="40" y="92" width="540" height="600" rx="11" fill="#fcfcfe" stroke="#e3e3e9"/>
-  <rect x="41" y="93" width="538" height="598" rx="10" fill="url(#grid6)"/>
-  <!-- breadcrumb -->
-  <rect x="56" y="106" width="230" height="26" rx="8" fill="#ffffff" stroke="#e3e3e9"/>
-  <text x="70" y="123" font-size="12" fill="#1a1a1a" font-weight="600">项目层</text>
-  <text x="118" y="123" font-size="12" fill="#9a9aa0">›  霓虹之夜</text>
-  <text x="300" y="123" font-size="11.5" fill="#9a9aa0">LOD：镜头 = 海报 tile</text>
+  <!-- ============ LEFT: DIRECTOR LAYER (shot-centric board) ============ -->
+  <rect x="40" y="92" width="660" height="640" rx="11" fill="#ffffff" stroke="#e3e3e9"/>
+  <rect x="56" y="106" width="220" height="26" rx="8" fill="#f4f4f7"/>
+  <text x="70" y="123" font-size="12" fill="#1a1a1a" font-weight="700">导演层</text><text x="116" y="123" font-size="12" fill="#9a9aa0">· 霓虹之夜</text>
+  <text x="540" y="123" font-size="11" fill="#28a35a">本次累计 ￥0.40</text>
 
-  <!-- asset chips -->
-  <rect x="72" y="170" width="120" height="40" rx="9" fill="#ffffff" stroke="#c9a6ff" stroke-width="1.8"/>
-  <circle cx="92" cy="190" r="10" fill="#efe4ff"/><text x="110" y="194" font-size="11.5" fill="#7a4ad0" font-weight="600">角色·林夏</text>
-  <rect x="72" y="224" width="120" height="36" rx="9" fill="#ffffff" stroke="#9ad0a6" stroke-width="1.8"/>
-  <text x="86" y="246" font-size="11.5" fill="#2f8a4d" font-weight="600">服装·夜市</text>
-  <rect x="72" y="274" width="120" height="36" rx="9" fill="#ffffff" stroke="#9ac4e0" stroke-width="1.8"/>
-  <text x="86" y="296" font-size="11.5" fill="#2f6a8a" font-weight="600">背景·雨夜街</text>
+  <!-- assets / character bible rail -->
+  <text x="56" y="156" font-size="12" fill="#6a6a70" font-weight="700">资产 / Character Bible</text>
+  <rect x="56" y="166" width="132" height="40" rx="9" fill="#ffffff" stroke="#c9a6ff" stroke-width="1.8"/>
+  <circle cx="76" cy="186" r="10" fill="#efe4ff"/><text x="94" y="183" font-size="11" fill="#7a4ad0" font-weight="600">角色·林夏</text><text x="94" y="197" font-size="9.5" fill="#28a35a">identity ✓</text>
+  <rect x="200" y="166" width="116" height="40" rx="9" fill="#ffffff" stroke="#9ad0a6" stroke-width="1.8"/><text x="214" y="190" font-size="11" fill="#2f8a4d" font-weight="600">服装·夜市</text>
+  <rect x="328" y="166" width="120" height="40" rx="9" fill="#ffffff" stroke="#9ac4e0" stroke-width="1.8"/><text x="342" y="190" font-size="11" fill="#2f6a8a" font-weight="600">背景·雨夜街</text>
+  <rect x="460" y="166" width="44" height="40" rx="9" fill="#f4f4f7" stroke="#d6d6dd" stroke-dasharray="3"/><text x="482" y="191" font-size="18" fill="#a0a0a6" text-anchor="middle">+</text>
+  <line x1="56" y1="224" x2="684" y2="224" stroke="#eee"/>
 
-  <!-- shot tiles -->
-  <g>
-    <rect x="300" y="160" width="156" height="92" rx="10" fill="#ffffff" stroke="#c7c7cf" stroke-width="1.5"/>
-    <rect x="312" y="172" width="132" height="50" rx="6" fill="#1c1c22"/><circle cx="340" cy="197" r="10" fill="#3a3a46"/>
-    <text x="312" y="240" font-size="11" fill="#3a4ab0" font-weight="600">镜头 1 · 街口登场</text>
+  <!-- shots spine -->
+  <text x="56" y="250" font-size="12" fill="#6a6a70" font-weight="700">分镜头（片子主轴）</text>
+  <text x="430" y="250" font-size="10.5" fill="#9a9aa0">每镜头任务：分镜 · 生成 · 选片</text>
 
-    <rect x="300" y="288" width="156" height="108" rx="10" fill="#ffffff" stroke="#0a84ff" stroke-width="2.5"/>
-    <rect x="312" y="300" width="132" height="54" rx="6" fill="#1c1c22"/><circle cx="345" cy="327" r="11" fill="#3a3a46"/>
-    <text x="312" y="372" font-size="11" fill="#0a5ad0" font-weight="700">镜头 2 · 推轨穿行</text>
-    <rect x="312" y="380" width="132" height="8" rx="4" fill="#dcecff"/><rect x="312" y="380" width="78" height="8" rx="4" fill="#0a84ff"/>
-    <rect x="300" y="288" width="156" height="108" rx="10" fill="none" stroke="#0a84ff" stroke-width="2.5"/>
+  <!-- shot row 1 (done) -->
+  <rect x="56" y="262" width="628" height="92" rx="10" fill="#fcfcfe" stroke="#e3e3e9"/>
+  <rect x="68" y="274" width="96" height="68" rx="6" fill="#1c1c22"/><circle cx="100" cy="302" r="11" fill="#3a3a46"/>
+  <text x="180" y="290" font-size="12.5" fill="#1a1a1a" font-weight="700">镜头 1 · 街口登场</text>
+  <text x="180" y="308" font-size="10.5" fill="#9a9aa0">林夏走入雨夜街口，中景</text>
+  <!-- stage pills -->
+  <rect x="180" y="320" width="56" height="22" rx="7" fill="#e3f7e8"/><text x="208" y="335" font-size="10" fill="#1f8a44" text-anchor="middle">分镜 ✓</text>
+  <rect x="242" y="320" width="56" height="22" rx="7" fill="#e3f7e8"/><text x="270" y="335" font-size="10" fill="#1f8a44" text-anchor="middle">生成 ✓</text>
+  <rect x="304" y="320" width="56" height="22" rx="7" fill="#e3f7e8"/><text x="332" y="335" font-size="10" fill="#1f8a44" text-anchor="middle">选片 ✓</text>
+  <!-- ref chips -->
+  <rect x="470" y="320" width="62" height="20" rx="6" fill="#efe4ff"/><text x="501" y="334" font-size="9" fill="#7a4ad0" text-anchor="middle">林夏</text>
+  <rect x="538" y="320" width="62" height="20" rx="6" fill="#e3f5e8"/><text x="569" y="334" font-size="9" fill="#2f8a4d" text-anchor="middle">夜市装</text>
+  <rect x="606" y="320" width="72" height="20" rx="6" fill="#e3eef7"/><text x="642" y="334" font-size="9" fill="#2f6a8a" text-anchor="middle">雨夜街</text>
 
-    <rect x="300" y="432" width="156" height="92" rx="10" fill="#ffffff" stroke="#c7c7cf" stroke-width="1.5"/>
-    <rect x="312" y="444" width="132" height="50" rx="6" fill="#f0f0f4"/><text x="378" y="473" font-size="10" fill="#a0a0a6" text-anchor="middle">待生成</text>
-    <text x="312" y="512" font-size="11" fill="#3a4ab0" font-weight="600">镜头 3 · 特写回眸</text>
-  </g>
+  <!-- shot row 2 (active, generating) -->
+  <rect x="56" y="364" width="628" height="100" rx="10" fill="#f5faff" stroke="#0a84ff" stroke-width="2.5"/>
+  <rect x="68" y="376" width="96" height="72" rx="6" fill="#1c1c22"/><circle cx="104" cy="406" r="12" fill="#3a3a46"/>
+  <rect x="76" y="438" width="80" height="6" rx="3" fill="rgba(255,255,255,.25)"/><rect x="76" y="438" width="48" height="6" rx="3" fill="#28c840"/>
+  <text x="180" y="392" font-size="12.5" fill="#0a5ad0" font-weight="700">镜头 2 · 推轨穿行</text>
+  <text x="180" y="410" font-size="10.5" fill="#6a8ac0">推轨穿过夜市人群，5s</text>
+  <rect x="180" y="424" width="56" height="22" rx="7" fill="#e3f7e8"/><text x="208" y="439" font-size="10" fill="#1f8a44" text-anchor="middle">分镜 ✓</text>
+  <!-- active 生成 pill = drill source -->
+  <rect x="242" y="422" width="70" height="26" rx="7" fill="#0a84ff"/><text x="277" y="439" font-size="10.5" fill="#fff" text-anchor="middle" font-weight="700">生成 60%●</text>
+  <rect x="318" y="424" width="56" height="22" rx="7" fill="#ffffff" stroke="#d6d6dd"/><text x="346" y="439" font-size="10" fill="#a0a0a6" text-anchor="middle">选片 ○</text>
+  <text x="386" y="439" font-size="10" fill="#0a84ff">↑ 点任务进技术 flow</text>
+  <rect x="540" y="424" width="62" height="20" rx="6" fill="#efe4ff"/><text x="571" y="438" font-size="9" fill="#7a4ad0" text-anchor="middle">林夏</text>
+  <rect x="608" y="424" width="70" height="20" rx="6" fill="#e3eef7"/><text x="643" y="438" font-size="9" fill="#2f6a8a" text-anchor="middle">雨夜街</text>
 
-  <!-- links -->
-  <g stroke="#c9a6ff" stroke-width="1.8" fill="none">
-    <path d="M192 190 C250 190 250 200 300 200"/>
-    <path d="M192 190 C250 300 250 330 300 330"/>
-  </g>
-  <g stroke="#9ac4e0" stroke-width="1.8" fill="none">
-    <path d="M192 292 C250 292 250 340 300 340"/>
-  </g>
+  <!-- shot row 3 (pending) -->
+  <rect x="56" y="474" width="628" height="92" rx="10" fill="#fcfcfe" stroke="#e3e3e9"/>
+  <rect x="68" y="486" width="96" height="68" rx="6" fill="#f0f0f4"/><text x="116" y="524" font-size="10" fill="#a0a0a6" text-anchor="middle">待生成</text>
+  <text x="180" y="502" font-size="12.5" fill="#1a1a1a" font-weight="700">镜头 3 · 特写回眸</text>
+  <text x="180" y="520" font-size="10.5" fill="#9a9aa0">林夏回眸特写，浅景深</text>
+  <rect x="180" y="532" width="56" height="22" rx="7" fill="#e3f7e8"/><text x="208" y="547" font-size="10" fill="#1f8a44" text-anchor="middle">分镜 ✓</text>
+  <rect x="242" y="532" width="56" height="22" rx="7" fill="#ffffff" stroke="#d6d6dd"/><text x="270" y="547" font-size="10" fill="#a0a0a6" text-anchor="middle">生成 ○</text>
+  <rect x="304" y="532" width="56" height="22" rx="7" fill="#ffffff" stroke="#d6d6dd"/><text x="332" y="547" font-size="10" fill="#a0a0a6" text-anchor="middle">选片 ○</text>
+  <rect x="540" y="532" width="62" height="20" rx="6" fill="#efe4ff"/><text x="571" y="546" font-size="9" fill="#7a4ad0" text-anchor="middle">林夏</text>
 
-  <!-- minimap -->
-  <rect x="442" y="600" width="118" height="76" rx="8" fill="#ffffff" stroke="#d6d6dd"/>
-  <rect x="452" y="612" width="18" height="12" rx="3" fill="#efe4ff"/><rect x="452" y="628" width="18" height="10" rx="3" fill="#e3f5e8"/>
-  <rect x="500" y="612" width="22" height="14" rx="3" fill="#dcecff"/><rect x="500" y="632" width="22" height="14" rx="3" fill="#eef0fb"/>
-  <rect x="470" y="616" width="56" height="36" rx="3" fill="none" stroke="#0a84ff" stroke-width="1.5"/>
-  <text x="501" y="670" font-size="9" fill="#9a9aa0" text-anchor="middle">缩略地图</text>
-  <text x="56" y="676" font-size="11.5" fill="#6a6a70" font-weight="600">项目层：角色/资产/镜头 + 引用连线（毛球用「选中即高亮、其余 ghost」治理）</text>
+  <!-- project-level actions -->
+  <line x1="56" y1="586" x2="684" y2="586" stroke="#eee"/>
+  <rect x="56" y="600" width="110" height="30" rx="8" fill="#f0f0f4"/><text x="111" y="620" font-size="11.5" fill="#3a3a3c" text-anchor="middle">导出工程 ▸</text>
+  <rect x="176" y="600" width="120" height="30" rx="8" fill="#f7f7fa" stroke="#e3e3e9" stroke-dasharray="3"/><text x="236" y="620" font-size="11.5" fill="#a0a0a6" text-anchor="middle">剪辑（未来）</text>
+  <text x="56" y="668" font-size="11.5" fill="#9a9aa0" font-weight="600">导演层 = 普通 SwiftUI 管理面（板/表 + 预览 + 依赖），不是节点画布</text>
 
-  <!-- ============ MIDDLE: transition ============ -->
-  <path d="M588 392 C636 392 636 392 692 392" stroke="#0a84ff" stroke-width="2.5" fill="none" marker-end="url(#arrow6)"/>
-  <rect x="582" y="300" width="116" height="74" rx="10" fill="#eef5ff" stroke="#0a84ff" stroke-dasharray="4"/>
-  <text x="640" y="322" font-size="12" fill="#0a5ad0" text-anchor="middle" font-weight="700">双击镜头</text>
-  <text x="640" y="340" font-size="10.5" fill="#3a6ad0" text-anchor="middle">zoom-to-enter</text>
-  <text x="640" y="358" font-size="10.5" fill="#3a6ad0" text-anchor="middle">放大动画进入</text>
-  <text x="640" y="420" font-size="10" fill="#9a9aa0" text-anchor="middle">‹ 返回则压栈弹出</text>
+  <!-- ============ MIDDLE arrow ============ -->
+  <path d="M690 432 C716 432 720 380 744 360" stroke="#0a84ff" stroke-width="2.5" fill="none" marker-end="url(#arrow6)"/>
 
-  <!-- ============ RIGHT: workflow layer ============ -->
-  <rect x="700" y="92" width="540" height="600" rx="11" fill="#fcfcfe" stroke="#e3e3e9"/>
-  <rect x="701" y="93" width="538" height="598" rx="10" fill="url(#grid6)"/>
-  <!-- breadcrumb with back -->
-  <rect x="716" y="106" width="44" height="26" rx="8" fill="#ffffff" stroke="#e3e3e9"/>
-  <text x="738" y="123" font-size="12" fill="#0a84ff" text-anchor="middle">‹返回</text>
-  <rect x="768" y="106" width="356" height="26" rx="8" fill="#ffffff" stroke="#e3e3e9"/>
-  <text x="782" y="123" font-size="11.5" fill="#9a9aa0">项目层 › 霓虹之夜 › </text>
-  <text x="938" y="123" font-size="11.5" fill="#1a1a1a" font-weight="700">镜头2 › 工作流</text>
+  <!-- ============ RIGHT: TECHNICAL LAYER ============ -->
+  <rect x="752" y="92" width="488" height="640" rx="11" fill="#fcfcfe" stroke="#e3e3e9"/>
+  <rect x="753" y="93" width="486" height="638" rx="10" fill="url(#grid6)"/>
+  <rect x="768" y="106" width="44" height="26" rx="8" fill="#ffffff" stroke="#e3e3e9"/><text x="790" y="123" font-size="12" fill="#0a84ff" text-anchor="middle">‹返回</text>
+  <rect x="820" y="106" width="404" height="26" rx="8" fill="#ffffff" stroke="#e3e3e9"/>
+  <text x="834" y="123" font-size="11.5" fill="#9a9aa0">导演层 › 镜头2 › </text>
+  <text x="942" y="123" font-size="11.5" fill="#1a1a1a" font-weight="700">生成 · 技术 flow</text>
 
-  <!-- node graph (one shot's ComfyUI graph) -->
   <g stroke="#b9b9c4" stroke-width="2" fill="none">
-    <path d="M838 215 C880 215 882 250 920 250"/>
-    <path d="M838 320 C880 320 882 270 920 270"/>
-    <path d="M1040 260 C1075 260 1078 300 1110 300"/>
+    <path d="M884 220 C928 220 930 256 974 256"/>
+    <path d="M884 326 C928 326 930 276 974 276"/>
+    <path d="M1104 266 C1140 266 1142 306 1176 306"/>
   </g>
-  <!-- nodes -->
-  <rect x="744" y="186" width="94" height="56" rx="8" fill="#ffffff" stroke="#c7c7cf" stroke-width="1.5"/>
-  <rect x="744" y="186" width="94" height="20" rx="8" fill="#eef0fb"/><rect x="744" y="198" width="94" height="8" fill="#eef0fb"/>
-  <text x="752" y="200" font-size="10" fill="#3a4ab0" font-weight="600">CLIPText</text>
-  <text x="752" y="226" font-size="9" fill="#9a9aa0">提示词</text>
+  <rect x="790" y="192" width="94" height="56" rx="8" fill="#ffffff" stroke="#c7c7cf" stroke-width="1.5"/>
+  <rect x="790" y="192" width="94" height="20" rx="8" fill="#eef0fb"/><text x="798" y="206" font-size="10" fill="#3a4ab0" font-weight="600">CLIPText</text><text x="798" y="232" font-size="9" fill="#9a9aa0">提示词</text>
+  <rect x="790" y="298" width="94" height="56" rx="8" fill="#ffffff" stroke="#c7c7cf" stroke-width="1.5"/>
+  <rect x="790" y="298" width="94" height="20" rx="8" fill="#efe4ff"/><text x="798" y="312" font-size="10" fill="#7a4ad0" font-weight="600">角色注入</text><text x="798" y="338" font-size="9" fill="#28a35a">identity ✓</text>
+  <rect x="974" y="228" width="130" height="76" rx="8" fill="#ffffff" stroke="#28c840" stroke-width="2.5"/>
+  <rect x="974" y="228" width="130" height="20" rx="8" fill="#e3f7e8"/><text x="982" y="242" font-size="10" fill="#1f8a44" font-weight="700">KSampler · 执行中</text>
+  <rect x="982" y="256" width="114" height="36" rx="5" fill="#1c1c22"/>
+  <rect x="988" y="284" width="102" height="5" rx="2.5" fill="rgba(255,255,255,.25)"/><rect x="988" y="284" width="62" height="5" rx="2.5" fill="#28c840"/>
+  <text x="1039" y="276" font-size="8.5" fill="#8a8a90" text-anchor="middle">latent 预览 · 12/25</text>
+  <rect x="1176" y="272" width="48" height="56" rx="8" fill="#ffffff" stroke="#c7c7cf" stroke-width="1.5"/>
+  <rect x="1176" y="272" width="48" height="20" rx="8" fill="#eef0fb"/><text x="1200" y="286" font-size="8.5" fill="#3a4ab0" text-anchor="middle" font-weight="600">VAE</text>
 
-  <rect x="744" y="292" width="94" height="56" rx="8" fill="#ffffff" stroke="#c7c7cf" stroke-width="1.5"/>
-  <rect x="744" y="292" width="94" height="20" rx="8" fill="#efe4ff"/><rect x="744" y="304" width="94" height="8" fill="#efe4ff"/>
-  <text x="752" y="306" font-size="10" fill="#7a4ad0" font-weight="600">角色注入</text>
-  <text x="752" y="332" font-size="9" fill="#28a35a">identity ✓</text>
-
-  <!-- executing node -->
-  <rect x="920" y="222" width="120" height="74" rx="8" fill="#ffffff" stroke="#28c840" stroke-width="2.5"/>
-  <rect x="920" y="222" width="120" height="20" rx="8" fill="#e3f7e8"/><rect x="920" y="234" width="120" height="8" fill="#e3f7e8"/>
-  <text x="928" y="236" font-size="10" fill="#1f8a44" font-weight="700">KSampler · 执行中</text>
-  <rect x="928" y="250" width="104" height="34" rx="5" fill="#1c1c22"/>
-  <rect x="934" y="276" width="92" height="5" rx="2.5" fill="rgba(255,255,255,.25)"/><rect x="934" y="276" width="60" height="5" rx="2.5" fill="#28c840"/>
-  <text x="980" y="269" font-size="8.5" fill="#8a8a90" text-anchor="middle">latent 预览 · 12/25</text>
-
-  <rect x="1110" y="266" width="100" height="64" rx="8" fill="#ffffff" stroke="#c7c7cf" stroke-width="1.5"/>
-  <rect x="1110" y="266" width="100" height="20" rx="8" fill="#eef0fb"/><rect x="1110" y="278" width="100" height="8" fill="#eef0fb"/>
-  <text x="1118" y="280" font-size="10" fill="#3a4ab0" font-weight="600">VAEDecode</text>
-  <rect x="1118" y="294" width="84" height="28" rx="5" fill="#f0f0f4"/>
-
-  <!-- focus-mode hint + minimap -->
-  <rect x="744" y="430" width="270" height="60" rx="9" fill="#fff7e6" stroke="#f0c869"/>
-  <text x="760" y="452" font-size="11.5" fill="#9a6a10" font-weight="600">聚焦模式</text>
-  <text x="760" y="472" font-size="10.5" fill="#9a6a10">选中节点 → 高亮其上下游，其余压暗，大图不迷路</text>
-
-  <rect x="1102" y="600" width="118" height="76" rx="8" fill="#ffffff" stroke="#d6d6dd"/>
-  <rect x="1112" y="612" width="14" height="10" rx="2" fill="#eef0fb"/><rect x="1112" y="624" width="14" height="10" rx="2" fill="#efe4ff"/>
-  <rect x="1150" y="616" width="18" height="10" rx="2" fill="#e3f7e8"/><rect x="1188" y="624" width="16" height="10" rx="2" fill="#eef0fb"/>
-  <rect x="1130" y="614" width="56" height="34" rx="3" fill="none" stroke="#0a84ff" stroke-width="1.5"/>
-  <text x="1161" y="670" font-size="9" fill="#9a9aa0" text-anchor="middle">缩略地图</text>
-  <text x="716" y="676" font-size="11.5" fill="#6a6a70" font-weight="600">工作流层：单镜头 ComfyUI 图（几十节点，节点数有界）</text>
+  <rect x="790" y="420" width="380" height="56" rx="9" fill="#eef5ff" stroke="#0a84ff"/>
+  <text x="806" y="442" font-size="11.5" fill="#0a5ad0" font-weight="700">技术层 = 此任务的执行 flow</text>
+  <text x="806" y="462" font-size="10.5" fill="#3a6ad0">生成任务 → 节点图；未来剪辑任务 → 时间线 surface</text>
+  <text x="768" y="676" font-size="11.5" fill="#9a9aa0" font-weight="600">技术层 = 全应用唯一的画布，节点数有界（一张图几十个节点）</text>
 </svg>
