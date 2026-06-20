@@ -7,77 +7,82 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <style>
   :root{
-    --bg:#f7f7fa; --chrome:#ececf0; --card:#ffffff; --panel:#f4f4f7; --border:#e3e3e9;
+    --bg:#f1f1f4; --card:#ffffff; --panel:#f5f5f8; --border:#ebebef; --line:#f0f0f3;
     --ink:#1a1a1a; --ink2:#3a3a3c; --muted:#9a9aa0; --muted2:#6a6a70; --accent:#0a84ff;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,'Helvetica Neue',Arial,'PingFang SC',sans-serif;-webkit-font-smoothing:antialiased}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,'Helvetica Neue',Arial,'PingFang SC',sans-serif;-webkit-font-smoothing:antialiased;font-size:13px}
   .muted{color:var(--muted)} .muted2{color:var(--muted2)}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:12px}
+  /* 浮起的圆角模块 */
+  .pane{background:var(--card);border-radius:16px;box-shadow:0 1px 2px rgba(20,20,40,.04),0 6px 20px rgba(20,20,40,.05);display:flex;flex-direction:column;overflow:hidden}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px}
+  .sec{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px}
   .panel{background:var(--panel);border-radius:10px}
-  .btn{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:6px 12px;border-radius:8px;border:1px solid var(--border);background:#fff;cursor:pointer;color:var(--ink2)}
+  .btn{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:7px 13px;border-radius:9px;border:1px solid var(--border);background:#fff;cursor:pointer;color:var(--ink2);transition:.12s}
   .btn:hover{background:var(--panel)}
   .btn-accent{background:var(--accent);color:#fff;border-color:var(--accent)}
-  .btn-accent:hover{filter:brightness(1.05);background:var(--accent)}
-  .btn:disabled{opacity:.5;cursor:default}
-  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:2px 8px;border-radius:999px}
-  .inp{width:100%;font-size:13px;padding:8px 10px;border:1px solid var(--border);border-radius:8px;background:#fff;color:var(--ink);outline:none}
-  .inp:focus{border-color:var(--accent)}
+  .btn-accent:hover{filter:brightness(1.06);background:var(--accent)}
+  .btn:disabled{opacity:.45;cursor:default}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 9px;border-radius:999px}
+  .inp{width:100%;font-size:13px;padding:8px 11px;border:1px solid #e0e0e6;border-radius:9px;background:#fff;color:var(--ink);outline:none;transition:.12s}
+  .inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(10,132,255,.12)}
   .row{display:flex;align-items:center;gap:8px}
-  .treerow{display:flex;align-items:center;gap:6px;font-size:13px;padding:5px 8px;border-radius:7px;cursor:pointer;color:var(--ink2);user-select:none}
+  .treerow{display:flex;align-items:center;gap:6px;font-size:13px;padding:6px 9px;border-radius:9px;cursor:pointer;color:var(--ink2);user-select:none;transition:.1s}
   .treerow:hover{background:var(--panel)}
-  .treerow.sel{background:#e7f0ff;color:var(--accent)}
-  .seclabel{font-size:11px;font-weight:600;letter-spacing:.4px;color:var(--muted);text-transform:uppercase}
+  .treerow.sel{background:#e3efff;color:#0a5ad0;font-weight:600}
+  .seclabel{font-size:11px;font-weight:700;letter-spacing:.3px;color:var(--muted2)}
   .scroll{overflow:auto}
-  .scroll::-webkit-scrollbar{width:8px;height:8px}.scroll::-webkit-scrollbar-thumb{background:#d2d2da;border-radius:4px}
-  .spin{width:14px;height:14px;border:2px solid #cfcfd6;border-top-color:var(--accent);border-radius:50%;animation:sp 0.7s linear infinite;display:inline-block}
+  .scroll::-webkit-scrollbar{width:8px;height:8px}.scroll::-webkit-scrollbar-thumb{background:#d8d8e0;border-radius:4px}.scroll::-webkit-scrollbar-track{background:transparent}
+  .spin{width:14px;height:14px;border:2px solid #cfcfd6;border-top-color:var(--accent);border-radius:50%;animation:sp 0.7s linear infinite;display:inline-block;vertical-align:middle}
   @keyframes sp{to{transform:rotate(360deg)}}
-  .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.25);display:flex;align-items:center;justify-content:center;z-index:50}
+  .modal-bg{position:fixed;inset:0;background:rgba(20,20,40,.28);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:50}
   textarea.inp{resize:vertical;min-height:40px;font-family:inherit}
-  .bubble{font-size:13px;padding:8px 11px;border-radius:11px;max-width:88%;white-space:pre-wrap;word-break:break-word}
+  .bubble{font-size:13px;padding:9px 12px;border-radius:13px;max-width:88%;white-space:pre-wrap;word-break:break-word;line-height:1.5}
 </style>
 </head>
 <body>
-<div class="flex" style="height:100vh">
+<div style="display:flex;gap:12px;padding:12px;height:100vh">
   <!-- LEFT -->
-  <aside id="left" class="flex flex-col" style="width:250px;background:var(--card);border-right:1px solid var(--border)">
-    <div class="row" style="padding:14px 14px 8px">
-      <span style="font-size:18px">🎬</span>
-      <span style="font-weight:700;font-size:15px">ReelForge</span>
-      <span style="flex:1"></span>
-      <button class="btn" style="padding:4px 8px" onclick="openNewAsset()" title="新建资产">＋</button>
+  <aside id="left" class="pane" style="width:236px">
+    <div class="row" style="padding:16px 16px 10px">
+      <span style="font-size:17px">🎬</span>
+      <span style="font-weight:700;font-size:15px;letter-spacing:.2px">ReelForge</span>
     </div>
-    <div class="scroll" id="tree" style="flex:1;padding:4px 8px"></div>
-    <div style="border-top:1px solid var(--border);padding:8px 12px">
+    <div class="scroll" id="tree" style="flex:1;padding:2px 10px"></div>
+    <div style="padding:10px 12px">
+      <button class="btn btn-accent" style="width:100%;justify-content:center" onclick="openNewAsset()">＋ 新建资产</button>
+    </div>
+    <div style="border-top:1px solid var(--line);padding:8px 12px">
       <div class="treerow" onclick="openSettings()">⚙️ 设置 · 服务连接</div>
-      <div class="row muted" style="font-size:11px;padding:4px 6px"><span id="dot">●</span><span id="connText">未连接</span></div>
+      <div class="row muted" style="font-size:11px;padding:4px 8px"><span id="dot">●</span><span id="connText">未连接</span></div>
     </div>
   </aside>
 
   <!-- MIDDLE -->
-  <main class="flex flex-col" style="flex:1;min-width:440px">
-    <div class="row" style="padding:10px 16px;border-bottom:1px solid var(--border);background:var(--card)">
+  <main class="pane" style="flex:1;min-width:440px">
+    <div class="row" style="padding:13px 18px;border-bottom:1px solid var(--line)">
       <span id="crumb" style="font-weight:600;font-size:14px"></span>
       <span style="flex:1"></span>
       <span id="globalBusy"></span>
     </div>
-    <div class="scroll" id="middle" style="flex:1;padding:16px"></div>
+    <div class="scroll" id="middle" style="flex:1;padding:18px;background:#fbfbfd"></div>
   </main>
 
   <!-- RIGHT -->
-  <aside class="flex flex-col" style="width:360px;background:var(--card);border-left:1px solid var(--border)">
-    <div class="row" style="padding:10px 14px;border-bottom:1px solid var(--border)">
-      <button class="btn tab" data-tab="chat" style="padding:3px 10px" onclick="setTab('chat')">对话</button>
-      <button class="btn tab" data-tab="history" style="padding:3px 10px" onclick="setTab('history')">历史</button>
+  <aside class="pane" style="width:344px">
+    <div class="row" style="padding:12px 14px;border-bottom:1px solid var(--line)">
+      <button class="btn tab" data-tab="chat" style="padding:4px 12px" onclick="setTab('chat')">对话</button>
+      <button class="btn tab" data-tab="history" style="padding:4px 12px" onclick="setTab('history')">历史</button>
+      <span style="flex:1"></span><span class="muted" style="font-size:11px">✨ Agent</span>
     </div>
-    <div class="scroll" id="rightBody" style="flex:1;padding:12px"></div>
-    <div id="chatInputWrap" style="padding:12px;border-top:1px solid var(--border)">
+    <div class="scroll" id="rightBody" style="flex:1;padding:14px"></div>
+    <div id="chatInputWrap" style="padding:12px;border-top:1px solid var(--line)">
       <textarea id="chatInput" class="inp" placeholder="给 Agent 发消息… 例:帮我生成一个角色" rows="3"></textarea>
       <div class="row" style="margin-top:8px;justify-content:flex-end">
         <button class="btn btn-accent" onclick="sendChat()">发送 ↑</button>
       </div>
     </div>
-    <div class="row muted" style="font-size:11px;padding:8px 14px;border-top:1px solid var(--border)">
+    <div class="row muted" style="font-size:11px;padding:8px 14px;border-top:1px solid var(--line)">
       <span id="footModel">—</span><span style="flex:1"></span><span id="footProject"></span>
     </div>
   </aside>
@@ -204,34 +209,44 @@ function gallery(g){
       <div style="font-size:13px;font-weight:600;margin-top:6px">${esc(x.name)}</div><div class="chip" style="color:${t.color};background:${t.bg}">${t.cn}</div></div>`}).join('');
   return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px">${cells||'<span class="muted">空</span>'}</div>`;
 }
-function finalsView(finals){
+function finalsView(finals,labels){
   finals=finals||[];
   if(finals.length<=1){const p=finals[0];
-    return `<div style="width:100%;height:440px;border:1px solid var(--border);border-radius:10px;background:${p?`#0b0b0d center/contain no-repeat url(${media(p)})`:'#f0f0f3'};display:flex;align-items:center;justify-content:center;color:var(--muted)">${p?'':'生成中…'}</div>`}
-  return `<div class="row" style="gap:8px;align-items:stretch">${finals.slice(0,4).map(p=>`<div style="flex:1;height:420px;border:1px solid var(--border);border-radius:8px;background:#0b0b0d center/contain no-repeat url(${media(p)})"></div>`).join('')}</div>`;
+    return `<div style="width:100%;height:440px;border-radius:12px;background:${p?`#16161c center/contain no-repeat url(${media(p)})`:'#f0f0f3'};display:flex;align-items:center;justify-content:center;color:var(--muted)">${p?'':'<span class="spin"></span>&nbsp;生成中…'}</div>`}
+  const caps=labels||['正面','侧面','背面','3/4 侧'];
+  return `<div class="row" style="gap:10px;align-items:stretch">${finals.slice(0,4).map((p,i)=>`<div style="flex:1">
+     <div style="height:300px;border-radius:12px;background:#16161c center/contain no-repeat url(${media(p)})"></div>
+     <div class="muted" style="font-size:11px;text-align:center;margin-top:6px">${caps[i]||''}</div></div>`).join('')}</div>`;
 }
 function detail(x){
   if(!x)return '<div class="muted">未找到</div>';
   const isChar=chars().some(c=>c.id===x.id); const t=TYPES[isChar?'character':x.type]||TYPES.prop;
   const w=x.width||(isChar?832:1024), h=x.height||(isChar?1216:1024);
-  let html=`<div class="card" style="padding:14px;margin-bottom:14px">
-    <div class="row" style="margin-bottom:10px"><span class="seclabel">${t.icon} ${esc(x.name)}</span><span class="chip" style="color:${t.color};background:${t.bg}">${t.cn}</span></div>
+  const usedIn=shots().map((s,i)=>({i:i+1,s,r:(s.refs||[])})).filter(o=>o.r.includes(x.id));
+  let html=`<div class="sec" style="margin-bottom:14px">
+    <div class="row" style="margin-bottom:12px"><span style="font-weight:700;font-size:16px">${esc(x.name)}</span>
+      <span class="chip" style="color:${t.color};background:${t.bg}">${t.icon} ${t.cn}</span>
+      ${usedIn.length?`<span class="chip" style="color:#28a35a;background:#e3f5e8">在 ${usedIn.length} 个镜头使用</span>`:''}</div>
+    <div class="seclabel" style="margin-bottom:10px">${isChar?'多视角定稿(turnaround)':'参考图'}</div>
     ${finalsView(x.finals)}</div>`;
-  // prompt + dims
-  html+=`<div class="card" style="padding:14px;margin-bottom:14px"><div class="seclabel" style="margin-bottom:8px">生成提示词</div>
+  html+=`<div class="sec" style="margin-bottom:14px"><div class="seclabel" style="margin-bottom:10px">生成提示词</div>
     <textarea id="d_prompt" class="inp" rows="3">${esc(x.prompt||'')}</textarea>
-    <div class="row" style="margin-top:8px"><span class="muted" style="font-size:12px">尺寸</span>
-      <input id="d_w" class="inp" style="width:64px" value="${w}"/> <span class="muted">×</span> <input id="d_h" class="inp" style="width:64px" value="${h}"/><span class="muted" style="font-size:11px">px</span></div>
-    <div class="row" style="margin-top:10px"><button class="btn" onclick="openGraph('${isChar?'character':'asset'}','${x.id}')">〈/〉 生成流程(节点图)</button><span style="flex:1"></span>
+    <div class="row" style="margin-top:10px"><span class="muted" style="font-size:12px">尺寸</span>
+      <input id="d_w" class="inp" style="width:66px" value="${w}"/> <span class="muted">×</span> <input id="d_h" class="inp" style="width:66px" value="${h}"/><span class="muted" style="font-size:11px">px</span>
+      <span style="flex:1"></span>
+      <button class="btn" onclick="openGraph('${isChar?'character':'asset'}','${x.id}')">〈/〉 生成流程</button>
       <button class="btn btn-accent" onclick="regen('${x.id}')">↻ 重新生成</button></div></div>`;
   if(isChar){
-    const refs=shots().map((s,i)=>({i:i+1,r:(s.refs||[])})).filter(o=>o.r.includes(x.id)).map(o=>'镜 '+o.i);
-    html+=`<div class="card" style="padding:14px"><div class="seclabel" style="margin-bottom:8px">🔒 身份锁定卡</div>
-      <input id="d_trigger" class="inp" placeholder="触发词" value="${esc(x.trigger||'')}"/>
-      <div class="row" style="margin-top:10px"><span class="chip" style="background:${x.lora?'#e6f4ea':'#f0f0f3'};color:${x.lora?'#28a35a':'#9a9aa0'}">${x.lora?'LoRA ✓':'未训练 LoRA'}</span>
-        <span class="muted" style="font-size:12px">来源:${x.source==='image'?'参考图':'文本'}</span><span style="flex:1"></span>
-        <button class="btn btn-accent" onclick="saveTrigger('${x.id}')">保存</button></div>
-      <div class="muted" style="font-size:12px;margin-top:10px">一致性·被引用:${refs.length?refs.join('、'):'尚无镜头引用'}</div></div>`;
+    html+=`<div class="sec" style="margin-bottom:14px;background:#faf7ff;border-color:#e6d9ff">
+      <div style="color:#7a4ad0;font-weight:700;font-size:12.5px;margin-bottom:12px">🔒 身份锁定(一致性核心,Agent 会自动注入到所有镜头)</div>
+      <div class="row"><span class="muted" style="font-size:12px;width:64px">触发词</span><input id="d_trigger" class="inp" placeholder="如 linxia, cyberpunk girl" value="${esc(x.trigger||'')}"/></div>
+      <div class="row" style="margin-top:10px">
+        <span class="chip" style="background:${x.lora?'#e6f4ea':'#f0f0f3'};color:${x.lora?'#28a35a':'#9a9aa0'}">${x.lora?'专属 LoRA ✓':'未训练 LoRA'}</span>
+        <span class="chip" style="background:#f0f0f3;color:#6a6a70">来源:${x.source==='image'?'参考图':'文本'}</span>
+        <span style="flex:1"></span><button class="btn btn-accent" onclick="saveTrigger('${x.id}')">保存</button></div></div>`;
+    html+=`<div class="sec"><div class="seclabel" style="margin-bottom:10px">被引用于</div>
+      ${usedIn.length?`<div class="row" style="gap:8px;flex-wrap:wrap">${usedIn.map(o=>`<span class="chip" style="background:#eef0fb;color:#3a4ab0;cursor:pointer" onclick="setSel('shot','${o.s.id}')">镜 ${o.i} · ${esc(o.s.script||'')}</span>`).join('')}</div>
+        <div class="muted" style="font-size:11px;margin-top:10px">改动身份锁定后,可一键「重生成受影响镜头」以保持全片一致。</div>`:'<span class="muted" style="font-size:12px">尚无镜头引用此角色。</span>'}</div>`;
   }
   return html;
 }
