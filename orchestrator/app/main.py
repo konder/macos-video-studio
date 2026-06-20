@@ -445,43 +445,53 @@ def generate_asset(name: str, body: AssetGenIn):
     实例化的图作为该资产的生成流程(asset.graph)落库,产物入 finals。异步作业。"""
     if not body.prompt.strip():
         raise HTTPException(400, "prompt 不能为空")
-    jid = JOBS.create("asset", name, total=1, message="生成资产…")
+    store = _store(name)
+    comfy = _registry.route("edit" if body.ref_path else "txt2img").client
+    # 1) 实例化生成流程(有参考图→编辑流程,无→文生图)。参考图先传到 ComfyUI input。
+    from .pipeline import _upload
+    if body.ref_path:
+        ref_name = _upload(comfy, body.ref_path)
+        ir = _recipes.instantiate("keyframe_edit", {
+            "input_image": ref_name, "prompt": body.prompt, "seed": 42,
+            "filename_prefix": f"asset_{body.atype}"})
+    else:
+        ir = _recipes.instantiate("char_concept", {"prompt": body.prompt, "seed": 42})
+    # 2) 先建出资产(finals 空 + 已挂流程)→ 立刻出现在左侧树(create-first)
+    is_char = body.atype == "character"
+    aid = _nid("char" if is_char else body.atype[:4])
+    op = {"op": "create_character" if is_char else "create_asset", "id": aid,
+          "name": body.name, "prompt": body.prompt, "finals": [], "graph": ir}
+    if not is_char:
+        op["type"] = body.atype
+    d = store.load()
+    record_change(d, [op], author="human", rationale=f"新建资产 {body.name}")
+    d["history"][-1]["ts"] = time.time()
+    store._write(d)
+
+    jid = JOBS.create("asset", name, total=1, message="生成中…")
 
     def work():
         JOBS.update(jid, status="running")
         try:
-            store = _store(name)
-            comfy = _registry.route("edit" if body.ref_path else "txt2img").client
-            from .pipeline import _upload
-            if body.ref_path:
-                ref_name = _upload(comfy, body.ref_path)
-                ir = _recipes.instantiate("keyframe_edit", {
-                    "input_image": ref_name, "prompt": body.prompt, "seed": 42,
-                    "filename_prefix": f"asset_{body.atype}"})
-            else:
-                ir = _recipes.instantiate("char_concept", {"prompt": body.prompt, "seed": 42})
             errs = validate_ir(ir, comfy.object_info())
             if errs:
                 raise RuntimeError(str(errs))
             res = run_ir(ir, comfy, store)
             if not res.get("assets"):
                 raise RuntimeError(res.get("error", "无产物"))
-            d = store.load()
-            is_char = body.atype == "character"
-            op = {"op": "create_character" if is_char else "create_asset",
-                  "id": _nid("char" if is_char else body.atype[:4]),
-                  "name": body.name, "prompt": body.prompt, "finals": res["assets"], "graph": ir}
-            if not is_char:
-                op["type"] = body.atype
-            record_change(d, [op], author="human", rationale=f"生成资产 {body.name}")
-            d["history"][-1]["ts"] = time.time()
-            store._write(d)
+            # 3) 回填预览(finals),经 op 入历史
+            d2 = store.load()
+            field_op = "set_character_field" if is_char else "set_asset_field"
+            record_change(d2, [{"op": field_op, "id": aid, "field": "finals", "value": res["assets"]}],
+                          author="human", rationale="更新资产预览")
+            d2["history"][-1]["ts"] = time.time()
+            store._write(d2)
             JOBS.update(jid, status="done", message="完成", result={"finals": res["assets"]})
         except Exception as e:  # noqa: BLE001
             JOBS.update(jid, status="error", error=str(e), message=f"失败: {e}")
 
     threading.Thread(target=work, daemon=True).start()
-    return {"ok": True, "job_id": jid}
+    return {"ok": True, "job_id": jid, "asset_id": aid}
 
 
 @app.get("/projects/{name}/assets/{asset_id}/graph")

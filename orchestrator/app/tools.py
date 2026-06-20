@@ -5,9 +5,12 @@ from __future__ import annotations
 
 import json
 
+import time
+
 from .estimate import estimate as estimate_task
 from .ir import ir_to_prompt
-from .ops import apply_ops
+from .ops import apply_ops, record_change
+from .store import _nid
 
 # 原始 JSON schema 工具定义,直接传给 Anthropic Messages API。
 TOOL_SCHEMAS = [
@@ -99,18 +102,19 @@ TOOL_SCHEMAS = [
         "input_schema": {"type": "object", "properties": {}, "required": []},
     },
     {
-        "name": "save_asset",
-        "description": "把最近 run 的产物 + 当前流程登记为可复用资产(会出现在资产库/左侧树)。"
-                       "用户想要一个角色/服装/道具/场景/风格资产时,run 出图后必须调用它。",
+        "name": "create_asset",
+        "description": "创建一个资产(角色/服装/道具/场景/风格)的完整动作:在当前项目里**先建出该资产**"
+                       "(立刻出现在资产库/左侧树)→ 用文字实例化它的生成流程 → 执行 → 把产物回填为预览图。"
+                       "用户说'生成一个角色/做个场景'等就用它,一步到位。",
         "input_schema": {
             "type": "object",
             "properties": {
                 "atype": {"type": "string", "enum": ["character", "wardrobe", "prop", "environment", "styleframe"],
                           "description": "资产类型"},
-                "name": {"type": "string", "description": "资产名称"},
-                "prompt": {"type": "string", "description": "该资产的描述(可选)"},
+                "name": {"type": "string", "description": "资产名称(中文友好)"},
+                "prompt": {"type": "string", "description": "外观/内容描述(高质量英文 prompt 更佳)"},
             },
-            "required": ["atype", "name"],
+            "required": ["atype", "name", "prompt"],
         },
     },
 ]
@@ -184,30 +188,43 @@ def dispatch(name: str, args: dict, ctx: Context) -> str:
         ctx.last_assets = res.get("assets", []) or []
         return json.dumps(res, ensure_ascii=False)
 
-    if name == "save_asset":
-        # 把最近 run 的产物 + 当前流程登记为可复用资产(create_character/create_asset op,入历史)。
-        if not ctx.last_assets:
-            return "Error: 还没有产物,请先 run 出图,再 save_asset。"
-        import time
-
-        from .ops import record_change
-        from .store import _nid
+    if name == "create_asset":
+        # 完整动作:先建实体(入树)→ 实例化流程 → 执行 → 回填预览。每步经 op 入历史(与人同构)。
         atype = args.get("atype", "prop")
         aname = args.get("name") or "未命名资产"
+        prompt = args.get("prompt") or aname
         is_char = atype == "character"
-        op = {"op": "create_character" if is_char else "create_asset",
-              "id": _nid("char" if is_char else atype[:4]), "name": aname,
-              "prompt": args.get("prompt", ""), "finals": ctx.last_assets, "graph": ctx.graph}
+        aid = _nid("char" if is_char else atype[:4])
+        ir = ctx.recipes.instantiate("char_concept", {"prompt": prompt, "seed": 42})
+        # 1) 先建出资产(finals 空 + 已挂流程)→ 立刻出现在左侧树
+        create_op = {"op": "create_character" if is_char else "create_asset", "id": aid,
+                     "name": aname, "prompt": prompt, "finals": [], "graph": ir}
         if not is_char:
-            op["type"] = atype
-        doc = ctx.store.load()
-        ch = record_change(doc, [op], author="agent", rationale=f"生成资产 {aname}")
-        ch["ts"] = time.time(); doc["history"][-1]["ts"] = ch["ts"]
-        ctx.store._write(doc)
-        return json.dumps({"ok": True, "asset_id": op["id"], "type": atype, "finals": ctx.last_assets},
-                          ensure_ascii=False)
+            create_op["type"] = atype
+        _commit_ctx(ctx, [create_op], f"新建{atype} {aname}")
+        # 2) 执行流程
+        errs = validate_ir(ir, ctx.comfy.object_info())
+        if errs:
+            return json.dumps({"ok": False, "asset_id": aid, "error": f"流程校验失败: {errs}"}, ensure_ascii=False)
+        res = run_ir(ir, ctx.comfy, ctx.store)
+        ctx.last_assets = res.get("assets", []) or []
+        if not ctx.last_assets:
+            return json.dumps({"ok": False, "asset_id": aid, "error": res.get("error", "无产物")}, ensure_ascii=False)
+        # 3) 回填预览(finals)
+        field_op = "set_character_field" if is_char else "set_asset_field"
+        _commit_ctx(ctx, [{"op": field_op, "id": aid, "field": "finals", "value": ctx.last_assets}], "更新资产预览")
+        return json.dumps({"ok": True, "asset_id": aid, "finals": ctx.last_assets}, ensure_ascii=False)
 
     return f"Error: unknown tool {name}"
+
+
+def _commit_ctx(ctx, ops: list[dict], rationale: str) -> None:
+    """Agent 写操作经 op + 统一历史落库(无特权写路径)。"""
+    doc = ctx.store.load()
+    ch = record_change(doc, ops, author="agent", rationale=rationale)
+    ch["ts"] = time.time()
+    doc["history"][-1]["ts"] = ch["ts"]
+    ctx.store._write(doc)
 
 
 # 文件名类枚举来自启动时的目录快照,运行时可由 /upload 动态新增 → 不做枚举硬校验。

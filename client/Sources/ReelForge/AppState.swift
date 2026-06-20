@@ -167,6 +167,7 @@ final class AppState: ObservableObject {
                           let obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { continue }
                     switch event {
                     case "tool_call": chatLog.append("🔧 " + (obj["tool"] as? String ?? "工具"))
+                    case "tool_result": await loadDetail()   // Agent 改了模型 → 实时刷新左侧树/预览
                     case "message": finalMsg = obj["text"] as? String ?? finalMsg
                     case "error": finalMsg = "❌ " + (obj["error"] as? String ?? "出错")
                     default: break
@@ -225,6 +226,7 @@ final class AppState: ObservableObject {
                 if !p.isEmpty { ref = p }
             }
             let jid = try await api.generateAsset(project: project, atype: kind, name: name, prompt: prompt, refPath: ref)
+            await loadDetail()      // 资产已建出(finals 空)→ 立刻出现在左侧树
             while true {
                 try await Task.sleep(nanoseconds: 1_500_000_000)
                 let j = try await api.job(jid)
@@ -232,7 +234,7 @@ final class AppState: ObservableObject {
                 if j.status == "done" { break }
                 if j.status == "error" { chatLog.append("❌ \(j.error ?? "生成失败")"); break }
             }
-            await loadDetail()
+            await loadDetail()      // 产物回填 → 预览图更新
         } catch { chatLog.append("❌ 生成资产失败: \(error.localizedDescription)") }
     }
 
