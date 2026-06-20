@@ -12,6 +12,7 @@ import asyncio
 import json
 import os
 import queue
+import random
 import threading
 import time
 import urllib.parse
@@ -447,18 +448,20 @@ def generate_asset(name: str, body: AssetGenIn):
         raise HTTPException(400, "prompt 不能为空")
     from .recipes import asset_dims, asset_prompt
     store = _store(name)
+    style = (store.load().get("meta") or {}).get("style", "realistic")
     comfy = _registry.route("edit" if body.ref_path else "txt2img").client
-    # 1) 实例化生成流程(有参考图→编辑流程,无→文生图)。角色 prompt 增强为三视角白底。
+    seed = random.randint(1, 2_000_000_000)
+    # 1) 实例化生成流程(有参考图→编辑流程,无→文生图)。角色 prompt 增强为站姿三视角白底。
     from .pipeline import _upload
     if body.ref_path:
         ref_name = _upload(comfy, body.ref_path)
         ir = _recipes.instantiate("keyframe_edit", {
-            "input_image": ref_name, "prompt": asset_prompt(body.atype, body.prompt), "seed": 42,
+            "input_image": ref_name, "prompt": asset_prompt(body.atype, body.prompt, style), "seed": seed,
             "filename_prefix": f"asset_{body.atype}"})
     else:
         w, h = asset_dims(body.atype)
         ir = _recipes.instantiate("char_concept", {
-            "prompt": asset_prompt(body.atype, body.prompt), "width": w, "height": h, "seed": 42})
+            "prompt": asset_prompt(body.atype, body.prompt, style), "width": w, "height": h, "seed": seed})
     # 2) 先建出资产(finals 空 + 已挂流程)→ 立刻出现在左侧树(create-first)
     is_char = body.atype == "character"
     aid = _nid("char" if is_char else body.atype[:4])
@@ -527,11 +530,14 @@ def regenerate_asset(name: str, asset_id: str, body: RegenIn = RegenIn()):
     if ent is None:
         raise HTTPException(404, f"未知资产/角色 {asset_id}")
     atype = "character" if is_char else ent.get("type", "prop")
+    style = (doc.get("meta") or {}).get("style", "realistic")
     new_prompt = (body.prompt or "").strip()
-    use_prompt = bool(new_prompt) or (not ent.get("graph") and bool(ent.get("prompt")))
+    # 有 prompt(原或新)就按词重建(可换风格/改词);否则跑现有流程但换随机 seed 求新变体
     eff_prompt = new_prompt or (ent.get("prompt") or "")
+    use_prompt = bool(eff_prompt)
     if not ent.get("graph") and not eff_prompt:
         raise HTTPException(400, "该资产没有可执行流程,也没有提示词")
+    seed = random.randint(1, 2_000_000_000)
     jid = JOBS.create("asset", name, total=1, message="重新生成…")
 
     def work():
@@ -540,9 +546,12 @@ def regenerate_asset(name: str, asset_id: str, body: RegenIn = RegenIn()):
             if use_prompt:
                 w, h = asset_dims(atype)
                 graph = _recipes.instantiate("char_concept", {
-                    "prompt": asset_prompt(atype, eff_prompt), "width": w, "height": h, "seed": 42})
+                    "prompt": asset_prompt(atype, eff_prompt, style), "width": w, "height": h, "seed": seed})
             else:
                 graph = ent["graph"]
+                for nd in graph.get("nodes", {}).values():   # 换 seed 求新变体
+                    if isinstance(nd.get("inputs"), dict) and "seed" in nd["inputs"]:
+                        nd["inputs"]["seed"] = seed
             comfy = _registry.route("txt2img").client
             errs = validate_ir(graph, comfy.object_info())
             if errs:

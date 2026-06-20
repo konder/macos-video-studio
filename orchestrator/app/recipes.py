@@ -13,13 +13,16 @@ import os
 RECIPE_DIR = os.path.join(os.path.dirname(__file__), "recipes")
 
 
-def asset_prompt(atype: str, prompt: str) -> str:
-    """按资产类型增强 prompt。角色 → 三视角(正/侧/背)无背景定型照。"""
-    if atype == "character":
-        return (f"{prompt}, full-body character turnaround sheet, three views in one image: "
-                "front view, side view and back view of the same character, T-pose, consistent design, "
-                "clean solid white background, no scenery, no props, studio character reference sheet")
-    return prompt
+def asset_prompt(atype: str, prompt: str, style: str = "realistic") -> str:
+    """按资产类型增强 prompt。角色 → 站姿全身三视角(正/侧/背)、纯白底、按项目风格。"""
+    if atype != "character":
+        return prompt
+    look = ("anime style, clean cel-shaded illustration" if style == "anime"
+            else "photorealistic, ultra-realistic studio photograph, natural soft lighting, sharp focus")
+    return (f"{prompt}, full body from head to toe, standing upright straight, "
+            "three separate full-body views of the same person side by side in one image: "
+            "front view, side view, back view, consistent character design, "
+            "plain seamless white background, no furniture no props, " + look)
 
 
 def asset_dims(atype: str) -> tuple[int, int]:
