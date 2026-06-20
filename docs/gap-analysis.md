@@ -64,3 +64,27 @@
   Applied/Settled;diff 卡;省心↔掌控滑块;按镜头租约 + 接管;撤销改 IR 不删 take。
 
 每阶段 backend+client 跑通、部署 5090、提交。
+
+## 纠偏完成情况(2026-06)
+
+全部 6 阶段已实现、部署 5090、验证、提交:
+
+- ✅ **①** op 动词补全(create_shot/delete_shot/set_keyframe/add_take/create_character/
+  create_asset/set_pos/delete_*)+ 两写端点合一入历史。验证:经 op→seq 历史。
+- ✅ **②** director/pipeline 不再直写 store,全走 record_change(author=agent)。**无特权写
+  路径成立**。
+- ✅ **③** set_character_field/set_asset_field op + /upload 上传端点;客户端新建角色/资产表单 +
+  可编辑身份锁定卡(触发词/相似度阈值)。
+- ✅ **④** jobs 登记表 + /films·/graphs/run 后台异步 + GET /jobs/{id} + WS /events +
+  /chat 改 SSE。客户端 job 轮询 + SSE 流式上屏。缺口:ComfyUI 节点级 latent 预览(需订阅
+  ComfyUI WS)未接。
+- ✅ **⑤** estimate.py + POST /graphs/estimate;/shots/{id}/generate 本地/云,云走
+  needs_confirm 费用闸 + set_meta cost_total 累计计费。验证:估算 + 费用闸。云实跑需
+  PUBLIC_MEDIA_BASE + ARK key(运行时)。
+- ✅ **⑥** invert_ops + /undo(逆操作入历史,不删 take)+ 镜头租约锁;客户端节点检查器可改参
+  (set_param op)/删节点、省心↔掌控滑块 + Proposed 暂存、历史撤销、镜头锁/接管。验证:
+  改参→保留→撤销回退;lock/locks。
+
+**已知剩余缺口(诚实记录)**:ComfyUI 节点级进度/latent 中间预览(需 ComfyUI WS 订阅);
+add_node 的 UI(需 object_info 节点选择器,当前可改参/删节点/连线靠 op 但无新增 UI);
+"改档案→一键重生成受影响镜头"按钮已留位未接;存储未落 NAS(dev)。
