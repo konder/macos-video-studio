@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 800" font-family="-apple-system, 'Helvetica Neue', Arial, 'PingFang SC', sans-serif">
+  <defs>
+    <pattern id="g7" width="26" height="26" patternUnits="userSpaceOnUse"><path d="M26 0 H0 V26" fill="none" stroke="#e9e9ef" stroke-width="1"/></pattern>
+  </defs>
+  <rect width="1280" height="800" rx="14" fill="#f7f7fa" stroke="#d6d6dd"/>
+  <rect width="1280" height="48" rx="14" fill="#ececf0"/><rect y="34" width="1280" height="14" fill="#ececf0"/>
+  <circle cx="26" cy="24" r="6.5" fill="#ff5f57"/><circle cx="48" cy="24" r="6.5" fill="#febc2e"/><circle cx="70" cy="24" r="6.5" fill="#28c840"/>
+  <text x="120" y="29" font-size="14" fill="#3a3a3c" font-weight="600">ReelForge — 镜头2 · 生成 · 技术层（Agent 协同编辑）</text>
+  <circle cx="1140" cy="24" r="5" fill="#28c840"/><text x="1152" y="28" font-size="12" fill="#6a6a70">5090 已连接</text>
+
+  <!-- LEFT history rail -->
+  <rect x="14" y="60" width="220" height="726" rx="10" fill="#ffffff" stroke="#e3e3e9"/>
+  <text x="32" y="86" font-size="12.5" fill="#9a9aa0" font-weight="600">统一历史（人 / Agent）</text>
+  <g font-size="11">
+    <rect x="26" y="98" width="6" height="34" rx="3" fill="#0a84ff"/><text x="40" y="112" fill="#3a3a3c">你 · 新建镜头</text><text x="40" y="127" fill="#9a9aa0">10:02</text>
+    <rect x="26" y="138" width="6" height="34" rx="3" fill="#7a4ad0"/><text x="40" y="152" fill="#3a3a3c">Agent · 选配方 i2v</text><text x="40" y="167" fill="#9a9aa0">10:02</text>
+    <rect x="26" y="178" width="6" height="34" rx="3" fill="#0a84ff"/><text x="40" y="192" fill="#3a3a3c">你 · 改 steps 25</text><text x="40" y="207" fill="#9a9aa0">10:05</text>
+    <rect x="24" y="218" width="200" height="50" rx="8" fill="#f4efff" stroke="#7a4ad0"/>
+    <rect x="26" y="222" width="6" height="42" rx="3" fill="#7a4ad0"/><text x="40" y="238" fill="#3a3a3c" font-weight="600">Agent · cfg 7→8 +补帧</text><text x="40" y="256" fill="#7a4ad0">当前 · 待确认 ▾</text>
+  </g>
+  <text x="32" y="300" font-size="10.5" fill="#9a9aa0">撤销以「变更」为单位整组回退；</text>
+  <text x="32" y="316" font-size="10.5" fill="#9a9aa0">撤销改 IR，不删已产出 take。</text>
+
+  <!-- CANVAS -->
+  <rect x="246" y="60" width="764" height="726" rx="10" fill="#fcfcfe" stroke="#e3e3e9"/>
+  <rect x="247" y="61" width="762" height="724" rx="9" fill="url(#g7)"/>
+  <!-- agent-active banner -->
+  <rect x="262" y="74" width="732" height="40" rx="10" fill="#f4efff" stroke="#7a4ad0"/>
+  <circle cx="284" cy="94" r="7" fill="#7a4ad0"/><circle cx="284" cy="94" r="7" fill="none" stroke="#cdb6f0" stroke-width="3"/>
+  <text x="300" y="90" font-size="12" fill="#5a2da0" font-weight="700">Agent 正在搭此镜头…</text>
+  <text x="300" y="105" font-size="10" fill="#7a4ad0">tool: add_node(FILM补帧) · validate ✓</text>
+  <rect x="900" y="82" width="80" height="24" rx="8" fill="#ffffff" stroke="#7a4ad0"/><text x="940" y="98" font-size="11.5" fill="#5a2da0" text-anchor="middle" font-weight="700">接管</text>
+
+  <!-- connections -->
+  <g stroke="#b9b9c4" stroke-width="2" fill="none">
+    <path d="M380 210 C420 210 420 250 460 250"/>
+    <path d="M380 320 C420 320 420 270 460 270"/>
+    <path d="M600 260 C636 260 636 260 672 260"/>
+  </g>
+  <!-- proposed connection (dashed green) -->
+  <path d="M792 260 C828 260 828 360 864 360" stroke="#28a35a" stroke-width="2" stroke-dasharray="5 4" fill="none"/>
+
+  <!-- node n1 CLIPText (normal) -->
+  <rect x="286" y="182" width="94" height="56" rx="8" fill="#ffffff" stroke="#c7c7cf" stroke-width="1.5"/>
+  <rect x="286" y="182" width="94" height="20" rx="8" fill="#eef0fb"/><text x="294" y="196" font-size="10" fill="#3a4ab0" font-weight="600">CLIPText</text>
+  <!-- node n2 角色注入 (normal) -->
+  <rect x="286" y="292" width="94" height="56" rx="8" fill="#ffffff" stroke="#c7c7cf" stroke-width="1.5"/>
+  <rect x="286" y="292" width="94" height="20" rx="8" fill="#efe4ff"/><text x="294" y="306" font-size="10" fill="#7a4ad0" font-weight="600">角色注入</text><text x="294" y="332" font-size="9" fill="#28a35a">identity ✓</text>
+  <!-- node n3 KSampler MODIFIED (amber) -->
+  <rect x="460" y="222" width="140" height="76" rx="8" fill="#fffaf0" stroke="#e8a13a" stroke-width="2.5"/>
+  <rect x="460" y="222" width="140" height="20" rx="8" fill="#fdeccb"/><text x="468" y="236" font-size="10" fill="#9a6a10" font-weight="700">KSampler · 改</text>
+  <rect x="468" y="250" width="110" height="20" rx="6" fill="#fff2d6" stroke="#f0c869"/><text x="476" y="264" font-size="10" fill="#9a6a10">cfg 7 → 8</text>
+  <text x="468" y="288" font-size="9" fill="#8a8a90">steps 25 · euler</text>
+  <!-- node n4 VAEDecode (normal) -->
+  <rect x="672" y="232" width="120" height="56" rx="8" fill="#ffffff" stroke="#c7c7cf" stroke-width="1.5"/>
+  <rect x="672" y="232" width="120" height="20" rx="8" fill="#eef0fb"/><text x="680" y="246" font-size="10" fill="#3a4ab0" font-weight="600">VAEDecode</text>
+  <!-- node n5 PROPOSED (green dashed ghost) -->
+  <rect x="864" y="332" width="120" height="60" rx="8" fill="#f1fbf4" stroke="#28a35a" stroke-width="2" stroke-dasharray="5 4"/>
+  <rect x="864" y="332" width="120" height="20" rx="8" fill="#dcf3e4"/><text x="872" y="346" font-size="10" fill="#1f8a44" font-weight="700">＋ FILM 补帧</text>
+  <text x="872" y="372" font-size="9.5" fill="#1f8a44">新增 · 24→48fps</text>
+  <text x="872" y="386" font-size="9" fill="#9a9aa0">Proposed（待接受）</text>
+
+  <!-- 三态 legend -->
+  <rect x="262" y="700" width="600" height="68" rx="9" fill="#ffffff" stroke="#e3e3e9"/>
+  <text x="278" y="722" font-size="11.5" fill="#6a6a70" font-weight="700">变更三态</text>
+  <rect x="278" y="732" width="22" height="16" rx="4" fill="#f1fbf4" stroke="#28a35a" stroke-dasharray="4 3"/><text x="308" y="744" font-size="10.5" fill="#3a3a3c">Proposed 暂存·虚线 ghost</text>
+  <rect x="470" y="732" width="22" height="16" rx="4" fill="#fffaf0" stroke="#e8a13a" stroke-width="2"/><text x="500" y="744" font-size="10.5" fill="#3a3a3c">Applied 已入图·高亮可撤销</text>
+  <rect x="690" y="732" width="22" height="16" rx="4" fill="#ffffff" stroke="#c7c7cf"/><text x="720" y="744" font-size="10.5" fill="#3a3a3c">Settled 折入历史</text>
+
+  <!-- RIGHT diff card -->
+  <rect x="1022" y="60" width="244" height="726" rx="10" fill="#ffffff" stroke="#7a4ad0" stroke-width="2"/>
+  <text x="1040" y="86" font-size="12.5" fill="#5a2da0" font-weight="700">Agent 改动 · 待确认</text>
+  <text x="1040" y="110" font-size="11.5" fill="#3a3a3c" font-weight="600">换高质量采样 + 加补帧</text>
+  <rect x="1040" y="122" width="208" height="30" rx="7" fill="#fff2d6" stroke="#f0c869"/><circle cx="1054" cy="137" r="4" fill="#e8a13a"/><text x="1066" y="141" font-size="10.5" fill="#9a6a10">KSampler　cfg 7 → 8</text>
+  <rect x="1040" y="158" width="208" height="30" rx="7" fill="#dcf3e4" stroke="#9ad0a6"/><circle cx="1054" cy="173" r="4" fill="#28a35a"/><text x="1066" y="177" font-size="10.5" fill="#1f8a44">＋ FILM 补帧（24→48fps）</text>
+  <rect x="1040" y="200" width="208" height="64" rx="8" fill="#f7f7fa"/>
+  <text x="1052" y="220" font-size="10.5" fill="#6a6a70" font-weight="600">为什么这么搭</text>
+  <text x="1052" y="238" font-size="10" fill="#8a8a90">推轨运镜需更顺滑；cfg 略升</text>
+  <text x="1052" y="253" font-size="10" fill="#8a8a90">提升服从度，补帧消除卡顿。</text>
+  <text x="1040" y="288" font-size="10.5" fill="#28a35a">validate ✓ 对照 /object_info</text>
+  <text x="1040" y="310" font-size="10.5" fill="#6a6a70">预计：+6s · 显存 +2GB · ￥0</text>
+  <!-- buttons -->
+  <rect x="1040" y="330" width="100" height="34" rx="9" fill="#7a4ad0"/><text x="1090" y="352" font-size="12" fill="#fff" text-anchor="middle" font-weight="700">接受</text>
+  <rect x="1148" y="330" width="100" height="34" rx="9" fill="#ffffff" stroke="#cfcfd6"/><text x="1198" y="352" font-size="12" fill="#3a3a3c" text-anchor="middle">撤销</text>
+  <rect x="1040" y="372" width="100" height="30" rx="9" fill="#ffffff" stroke="#cfcfd6"/><text x="1090" y="392" font-size="11" fill="#3a3a3c" text-anchor="middle">接受全部</text>
+  <rect x="1148" y="372" width="100" height="30" rx="9" fill="#ffffff" stroke="#cfcfd6"/><text x="1198" y="392" font-size="11" fill="#3a3a3c" text-anchor="middle">改一下…</text>
+  <rect x="1040" y="430" width="208" height="1" fill="#eee"/>
+  <text x="1040" y="456" font-size="10.5" fill="#9a9aa0">滑块=画布优先 → 改动落成 diff 卡</text>
+  <text x="1040" y="472" font-size="10.5" fill="#9a9aa0">需确认；省心端则自动应用+撤销。</text>
+</svg>

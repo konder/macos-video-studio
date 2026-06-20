@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 760" font-family="-apple-system, 'Helvetica Neue', Arial, 'PingFang SC', sans-serif">
+  <rect width="1280" height="760" rx="14" fill="#f7f7fa" stroke="#d6d6dd"/>
+  <rect width="1280" height="48" rx="14" fill="#ececf0"/><rect y="34" width="1280" height="14" fill="#ececf0"/>
+  <circle cx="26" cy="24" r="6.5" fill="#ff5f57"/><circle cx="48" cy="24" r="6.5" fill="#febc2e"/><circle cx="70" cy="24" r="6.5" fill="#28c840"/>
+  <text x="120" y="29" font-size="14" fill="#3a3a3c" font-weight="600">ReelForge — 导出工程「霓虹之夜」</text>
+
+  <!-- LEFT: ordered clips sequence -->
+  <rect x="14" y="60" width="900" height="686" rx="10" fill="#fcfcfe" stroke="#e3e3e9"/>
+  <text x="32" y="88" font-size="12.5" fill="#9a9aa0" font-weight="600">导出序列（按镜头顺序 · 各取选用 take）</text>
+
+  <!-- sequence track -->
+  <rect x="32" y="104" width="864" height="14" rx="7" fill="#eef0fb"/>
+  <text x="32" y="138" font-size="10.5" fill="#9a9aa0">00:00</text><text x="896" y="138" font-size="10.5" fill="#9a9aa0" text-anchor="end">00:14</text>
+
+  <g>
+    <rect x="32" y="150" width="270" height="180" rx="8" fill="#1c1c22"/><circle cx="167" cy="220" r="22" fill="#3a3a46"/>
+    <rect x="32" y="150" width="270" height="26" rx="8" fill="rgba(0,0,0,0.45)"/><text x="44" y="168" font-size="11" fill="#fff" font-weight="600">镜头 1 · 街口登场</text>
+    <rect x="44" y="300" width="60" height="18" rx="6" fill="#28c840"/><text x="74" y="313" font-size="9.5" fill="#fff" text-anchor="middle">take A</text>
+    <text x="280" y="318" font-size="10" fill="#8a8a90" text-anchor="end">4.0s</text>
+
+    <rect x="316" y="150" width="270" height="180" rx="8" fill="#1c1c22"/><circle cx="451" cy="220" r="22" fill="#3a3a46"/>
+    <rect x="316" y="150" width="270" height="26" rx="8" fill="rgba(0,0,0,0.45)"/><text x="328" y="168" font-size="11" fill="#fff" font-weight="600">镜头 2 · 推轨穿行</text>
+    <rect x="328" y="300" width="60" height="18" rx="6" fill="#28c840"/><text x="358" y="313" font-size="9.5" fill="#fff" text-anchor="middle">take C</text>
+    <text x="564" y="318" font-size="10" fill="#8a8a90" text-anchor="end">5.0s</text>
+
+    <rect x="600" y="150" width="270" height="180" rx="8" fill="#1c1c22"/><circle cx="735" cy="220" r="22" fill="#3a3a46"/>
+    <rect x="600" y="150" width="270" height="26" rx="8" fill="rgba(0,0,0,0.45)"/><text x="612" y="168" font-size="11" fill="#fff" font-weight="600">镜头 3 · 特写回眸</text>
+    <rect x="612" y="300" width="60" height="18" rx="6" fill="#28c840"/><text x="642" y="313" font-size="9.5" fill="#fff" text-anchor="middle">take B</text>
+    <text x="848" y="318" font-size="10" fill="#8a8a90" text-anchor="end">5.0s</text>
+  </g>
+
+  <rect x="32" y="360" width="864" height="1" fill="#eee"/>
+  <text x="32" y="392" font-size="11.5" fill="#6a6a70" font-weight="600">产物（写入 &lt;project&gt;/exports/）</text>
+  <g font-size="11" fill="#3a3a3c">
+    <text x="32" y="418">📄 reel_霓虹之夜.fcpxml　（工程：镜头顺序 / 时长 / 引用片段）</text>
+    <text x="32" y="442">🎬 shot01_takeA.mp4 · shot02_takeC.mp4 · shot03_takeB.mp4　（1080p · 24fps）</text>
+    <text x="32" y="466">🖼 thumbnails/　（缩略图）</text>
+  </g>
+  <rect x="32" y="496" width="864" height="56" rx="9" fill="#fff7e6" stroke="#f0c869"/>
+  <text x="48" y="518" font-size="11" fill="#9a6a10" font-weight="600">B 方案：导出给外部 NLE 收尾</text>
+  <text x="48" y="536" font-size="10.5" fill="#9a6a10">FCPXML 同时被 Final Cut 与 DaVinci Resolve 导入；剪辑 / 音轨 / 调色 / 口型由后置剪辑 Agent 或人工完成。</text>
+
+  <!-- RIGHT: export options -->
+  <rect x="930" y="60" width="336" height="686" rx="10" fill="#ffffff" stroke="#e3e3e9"/>
+  <text x="948" y="88" font-size="12.5" fill="#9a9aa0" font-weight="600">导出选项</text>
+  <text x="948" y="120" font-size="11.5" fill="#6a6a70">格式</text>
+  <rect x="948" y="130" width="300" height="30" rx="8" fill="#dcecff" stroke="#0a84ff"/><text x="1098" y="150" font-size="11.5" fill="#0a5ad0" text-anchor="middle" font-weight="700">有序片段 + FCPXML</text>
+  <text x="948" y="190" font-size="11.5" fill="#6a6a70">分辨率</text>
+  <rect x="948" y="200" width="146" height="30" rx="8" fill="#f0f0f4"/><text x="1021" y="220" font-size="11" fill="#8a8a90" text-anchor="middle">720p</text>
+  <rect x="1102" y="200" width="146" height="30" rx="8" fill="#dcecff" stroke="#0a84ff"/><text x="1175" y="220" font-size="11" fill="#0a5ad0" text-anchor="middle" font-weight="700">1080p</text>
+  <text x="948" y="260" font-size="11.5" fill="#6a6a70">帧率　24fps　·　范围　全部镜头(3)</text>
+  <text x="948" y="288" font-size="11.5" fill="#6a6a70">命名　shotNN_take?.mp4</text>
+  <rect x="948" y="308" width="300" height="1" fill="#eee"/>
+  <text x="948" y="334" font-size="11.5" fill="#3a3a3c">总时长　14.0s　·　3 镜头</text>
+  <text x="948" y="356" font-size="11.5" fill="#3a3a3c">预计大小　约 120 MB</text>
+
+  <rect x="948" y="690" width="300" height="40" rx="10" fill="#0a84ff"/><text x="1098" y="715" font-size="12.5" fill="#fff" text-anchor="middle" font-weight="700">导出 ▸</text>
+</svg>

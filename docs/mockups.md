@@ -53,3 +53,28 @@ diff 卡片呈现；右侧节点检查器，所有取值对照 `/object_info` �
   节点图；未来剪辑任务是时间线 surface。节点数天然有界（一张图几十个节点），**无需远近 LOD**。
 
 ![两层视图](mockups/06-canvas-navigation.svg)
+
+## 7. Agent 协同编辑（diff / 三态 / 接管）
+
+技术层里 Agent 改图以**变更三态**呈现：Proposed（虚线 ghost）/ Applied（高亮可撤销）/ Settled。改动配 **diff 卡**
+（改了啥 + 为什么这么搭 + `validate ✓` + 预估 + 接受/撤销/接受全部/改一下）；镜头处于「Agent 正在搭」时可一键**接管**；
+左侧统一历史按人 / Agent 着色，可整组撤销。对应 [native-ui.md](native-ui.md) ①+④。
+
+![Agent 协同编辑](mockups/07-agent-collab.svg)
+
+## 8. 角色创建（写实/二次元 · 文本/参考图）
+
+来源（文本描述 / 上传参考图）+ 风格（写实 / 二次元）→ 多视角定稿 → 身份锁定卡。**身份锁定方法按风格自动选**
+（写实 → InstantID/IPAdapter-FaceID；二次元 → IPAdapter + 角色 LoRA）；两种来源收敛成同一份角色档案。
+
+![角色创建](mockups/08-character-create.svg)
+
+## 9. 导出工程
+
+按镜头顺序拼选用 take，导出 **1080p 片段 + FCPXML**（给 Final Cut / DaVinci 收尾，B 方案）；右侧导出选项。
+
+![导出工程](mockups/09-export.svg)
+
+---
+
+> 端到端的「用户 ↔ 软件」交互用例（从空项目到导出）见 [walkthrough.md](walkthrough.md)。

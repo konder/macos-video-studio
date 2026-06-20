@@ -39,7 +39,8 @@ Agent、画布直接操作、对话都只是同一份数据的「操作端」，
 | [docs/pipeline.md](docs/pipeline.md) | 制作管线全景、本地/云路由、反馈系统 |
 | [docs/api-contract.md](docs/api-contract.md) | Orchestrator API 与 WebSocket 事件契约 |
 | [docs/diagrams.md](docs/diagrams.md) | 流程图（架构 / 管线 / Agent 循环 / 路由 / 数据模型 / 时序） |
-| [docs/mockups.md](docs/mockups.md) | 关键界面视觉稿（SVG 线框：对话/选片/角色库 + 导演层→技术层两层视图） |
+| [docs/mockups.md](docs/mockups.md) | 关键界面视觉稿（对话/导演层/技术层/Agent 协同/角色创建/选片/导出 等 9 屏） |
+| [docs/walkthrough.md](docs/walkthrough.md) | **从 0 到 1 交互用例**：空项目 → 角色 → 分镜 → 生成 → 选片 → 导出（含时序图） |
 | [docs/roadmap.md](docs/roadmap.md) | 里程碑、MVP 垂直切片、未决问题 |
 | [docs/native-ui.md](docs/native-ui.md) | macOS 原生 UI 核心问题；**①+④ 协同、②+③ 双层视图已对齐 v0.1**，第三层待讨论 |
 | [docs/open-questions.md](docs/open-questions.md) | **编码就绪度**：还太模糊、需拍板/外部事实才能开工的待定问题 |
