@@ -59,13 +59,18 @@ def load_providers() -> dict[str, CloudProvider]:
 
 
 def get_volcano() -> "VolcanoArkAdapter":
-    """从 env 构造火山适配器(VOLCANO_API_KEY 必填)。"""
+    """从 env 构造火山 Agent Plan 适配器。需 **Agent Plan 专属 API Key**。
+
+    VOLCANO_API_KEY  Agent Plan 专属 key(非 Coding/普通 key)
+    VOLCANO_ENDPOINT 默认 https://ark.cn-beijing.volces.com/api/plan/v3(含 /plan)
+    VOLCANO_MODEL    默认 doubao-seedance-2.0
+    """
     key = os.environ.get("VOLCANO_API_KEY", "")
     if not key:
-        raise CloudNotConfigured("缺少 VOLCANO_API_KEY")
+        raise CloudNotConfigured("缺少 VOLCANO_API_KEY(Agent Plan 专属 key)")
     return VolcanoArkAdapter(
-        os.environ.get("VOLCANO_ENDPOINT", "https://ark.cn-beijing.volces.com/api/v3"),
-        key, model=os.environ.get("VOLCANO_MODEL", "doubao-seedance-2-0-260128"))
+        os.environ.get("VOLCANO_ENDPOINT", "https://ark.cn-beijing.volces.com/api/plan/v3"),
+        key, model=os.environ.get("VOLCANO_MODEL", "doubao-seedance-2.0"))
 
 
 class VolcanoArkAdapter:
@@ -76,6 +81,9 @@ class VolcanoArkAdapter:
     """
 
     def __init__(self, endpoint: str, api_key: str, model: str = "doubao-seedance-2.0"):
+        # Agent Plan: endpoint 含 /plan(https://ark.cn-beijing.volces.com/api/plan/v3),
+        # model="doubao-seedance-2.0",且**必须用 Agent Plan 专属 API Key**
+        # (普通/Coding Plan key 会报 UnsupportedModel: does not support the agent plan feature)。
         self.endpoint = endpoint.rstrip("/")
         self.api_key = api_key
         self.model = model
@@ -92,13 +100,16 @@ class VolcanoArkAdapter:
             raise CloudNotConfigured(f"火山 {method} {path} {e.code}: {e.read().decode(errors='replace')[:300]}")
 
     def create_task(self, prompt: str, image_url: str | None = None,
-                    image_role: str = "first_frame", ratio: str = "16:9",
-                    duration: int = 4, resolution: str = "720p") -> str:
+                    image_role: str | None = None, ratio: str = "adaptive",
+                    duration: int = 5, generate_audio: bool = False) -> str:
         content: list[dict] = [{"type": "text", "text": prompt}]
         if image_url:
-            content.append({"type": "image_url", "image_url": {"url": image_url}, "role": image_role})
+            img: dict = {"type": "image_url", "image_url": {"url": image_url}}
+            if image_role:  # first_frame/last_frame/reference_image;官方 i2v 示例可省
+                img["role"] = image_role
+            content.append(img)
         body = {"model": self.model, "content": content, "ratio": ratio,
-                "duration": duration, "resolution": resolution, "watermark": False}
+                "duration": duration, "watermark": False, "generate_audio": generate_audio}
         res = self._req("POST", "/contents/generations/tasks", body)
         tid = res.get("id") or res.get("task_id")
         if not tid:
