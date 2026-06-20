@@ -46,6 +46,7 @@ Agent、画布直接操作、对话都只是同一份数据的「操作端」，
 | [docs/open-questions.md](docs/open-questions.md) | **编码就绪度**：就绪度结论 + 待定问题（A 类全清、D 仅剩 D7 后置）|
 | [docs/env-survey.md](docs/env-survey.md) | 5090 ComfyUI 环境调研清单 + **回填报告 / 解读**（A1 已完成）|
 | [docs/spike-plan.md](docs/spike-plan.md) | **M1 / M2 spike 执行清单**（给内网 agent：搭图 PoC + 一致性验证）|
+| [docs/dev-kickoff.md](docs/dev-kickoff.md) | **本地开发起步**：M1 编码 kickoff（前置 / 读文档顺序 / 既定决策）|
 
 ## 下一步
 
