@@ -32,12 +32,14 @@ def strip_bg(store_path: str) -> str:
     return store_path
 
 
-def compose_card(char_finals: list[str], comp_finals: list[str], store, prefix: str = "card") -> str:
-    """人物卡片 = 把角色多视图(左)+ 组件细节图(右)**拼版**到一张索引卡(不重渲染)。
-    角色图为透明 PNG → 贴到浅色卡底;返回保存路径。供视频生成做统一参考。"""
+def compose_card(char_finals: list[str], comp_finals: list[str], store, prefix: str = "card",
+                 transparent: bool = False) -> str:
+    """人物卡片排版:把(模型渲染的)角色多视图(左)+ 组件细节图(右)排到一张设定卡。
+    transparent=True → 透明底(各面板为透明 PNG);否则浅色卡底。返回保存路径。"""
     from io import BytesIO
     from PIL import Image
-    pad, H, T, BG = 24, 520, 170, (247, 247, 250, 255)
+    pad, H, T = 24, 520, 170
+    BG = (0, 0, 0, 0) if transparent else (247, 247, 250, 255)
 
     def _open(p):
         try:
@@ -73,7 +75,8 @@ def compose_card(char_finals: list[str], comp_finals: list[str], store, prefix: 
         for i, c in enumerate(comps):
             cc = fit_sq(c, T)
             canvas.alpha_composite(cc, (rx + (i % cols) * (T + pad), pad + (i // cols) * (T + pad)))
-    buf = BytesIO(); canvas.convert("RGB").save(buf, format="PNG")
+    buf = BytesIO()
+    (canvas if transparent else canvas.convert("RGB")).save(buf, format="PNG")
     return store.save_asset(buf.getvalue(), f"{prefix}.png")
 
 

@@ -543,25 +543,33 @@ def compose_asset(name: str, body: ComposeIn):
     def work():
         JOBS.update(jid, status="running")
         try:
-            from .pipeline import keyframe_compose
+            from .pipeline import compose_card, keyframe_compose, strip_bg
             from .recipes import _look
             comfy = _registry.route("edit").client
             look = _look(style)
-            sheet = (f"{look}, character design sheet, model reference sheet of one single character; "
-                     f"full-body turnaround in one image: front view, side view and back view of the SAME person; "
-                     f"plus a small row of facial expression headshots; plus separate detail callouts of the equipment, "
-                     f"clothing and props; the character is image 1 wearing and holding the items from the other references; "
-                     f"consistent character design, clean white background, neat concept-art layout, labeled panels. {body.prompt}")
-            kf = keyframe_compose(comfy, store, refs, sheet, seed=random.randint(1, 2_000_000_000), prefix=f"card_{aid}")
-            if not kf.get("keyframe"):
-                raise RuntimeError(str(kf.get("errors", "无产物")))
-            from .pipeline import strip_bg
-            path = strip_bg(kf["keyframe"])
+            seed = random.randint(1, 2_000_000_000)
+            # 1) 模型渲染"角色穿戴/持械"的正/侧/背三视(新合体渲染)
+            views = []
+            for lab, vp in [("front", "full-body front view facing camera"),
+                            ("side", "full-body side view profile"),
+                            ("back", "full-body back view from behind")]:
+                p = (f"{look}, {vp}, single person, full body head to toe, standing, "
+                     f"the character in image 1 wearing and holding the items from the other references, "
+                     f"keep face and identity consistent, plain white background, even lighting. {body.prompt}")
+                JOBS.event(jid, f"渲染{lab}视图…")
+                kf = keyframe_compose(comfy, store, refs, p, seed=seed, prefix=f"card_{aid}_{lab}")
+                if kf.get("keyframe"):
+                    views.append(strip_bg(kf["keyframe"]))
+            if not views:
+                raise RuntimeError("三视渲染无产物")
+            # 2) 程序排版成一张设定卡(三视 + 道具/服装细节贴片,透明底)
+            JOBS.event(jid, "排版设定卡…")
+            sheet = compose_card(views, refs[1:], store, prefix=f"sheet_{aid}", transparent=True)
             d2 = store.load()
-            record_change(d2, [{"op": "set_asset_field", "id": aid, "field": "finals", "value": [path]}],
+            record_change(d2, [{"op": "set_asset_field", "id": aid, "field": "finals", "value": [sheet]}],
                           author="human", rationale="人物卡片完成")
             d2["history"][-1]["ts"] = time.time(); store._write(d2)
-            JOBS.update(jid, status="done", message="完成", result={"finals": [kf["keyframe"]]})
+            JOBS.update(jid, status="done", message="完成", result={"finals": [sheet]})
         except Exception as e:  # noqa: BLE001
             JOBS.update(jid, status="error", error=str(e), message=f"失败: {e}")
 
