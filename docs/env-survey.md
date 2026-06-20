@@ -60,22 +60,37 @@
 
 ## 报告（回填）
 
-| 项 | 结果 |
+| 项 | 结果（2026-06 回填） |
 |---|---|
-| ComfyUI 可达 / 版本 | |
-| GPU / 显存 / 驱动 / CUDA | |
-| torch / python | |
-| object_info 节点总数 | |
-| 基础模型（checkpoints/unet/flux/sdxl/qwen…） | |
-| VAE / CLIP / clip_vision | |
-| 视频模型（Wan 版本 / 其它 i2v） | |
-| LoRA（已有 / 能否训练） | |
-| IPAdapter / InstantID / PuLID / ControlNet | |
-| 超分 / 补帧 | |
-| 全部 custom_nodes 列表 | |
-| txt2img 冒烟（成功？耗时） | |
-| i2v 冒烟（成功？耗时 / 显存） | |
-| 其它发现 / 坑 | |
+| ComfyUI 可达 / 版本 | ✅ `http://10.10.10.2:8188` · v0.24.0 · 前端 1.44.19 |
+| GPU / 显存 / 驱动 / CUDA | RTX 5090 · 32 GB（~32.4 GB 空闲）· 驱动 595.71.05 · CUDA 13.2 · RAM 48 GB |
+| torch / python | Python 3.12.3 · PyTorch 2.12.0+cu130 |
+| object_info 节点总数 | 762 |
+| 基础模型（图像） | **Flux-2 Klein 9B** fp8 · **Qwen-Image**(layered) · **Z-Image Turbo** bf16 ｜ ⚠️ 无专用二次元基模 |
+| 基础模型（视频） | **WAN 2.2**（i2v + t2v 14B high/low + ti2v 5B）· HunyuanVideo 1.5（1080p SR + 720p t2v）· LTXV 13B 0.9.8 |
+| VAE / CLIP | Flux ae · WAN 2.1/2.2 vae · Hunyuan/LTXV/Qwen vae ｜ clip_l · t5xxl · umt5_xxl · qwen2.5-vl-7b · qwen3-4b · byt5 · **clip_vision_h** |
+| LoRA | 有 Qwen-Image-Edit Lightning LoRA；**有 TrainLoraNode / SaveLoRA → 可本机训练** |
+| IPAdapter / InstantID / PuLID | ❌ **节点和模型均未安装** |
+| ControlNet | 节点在，但 `controlnet/` **无模型文件**（需下载） |
+| 超分 / 补帧 | 超分 4x-UltraSharp ✓；补帧节点在但 **无 RIFE/FILM 模型**（需下载） |
+| custom_nodes | Easy-Use · Manager · TextureAlchemy · WJNodes · NVIDIA-GenAI-Creator-Toolkit |
+| 云 partner 节点 | **Kling · Runway · Luma · Sora · Vidu · Veo 等**（需配 API key）|
+| txt2img 冒烟 | ⚠️ 链路正常（WAN T2V 加载+4 步采样 OK）；VAEDecode 因用错 latent 节点报错（配置问题，非环境问题）|
+| i2v 冒烟 | 未跑（节点齐：WanImageToVideo / HunyuanVideo15ImageToVideo / LTXVImgToVideo）|
+| 存储 / 其它 | ComfyUI 跑在**容器 namespace**（`/basedir` host 不可见）· 系统盘 1.8T(62%) · **NAS 37T 挂 `/mnt/nas`** · 启动含 `--use-sage-attention --fast --bf16-vae --bf16-text-enc` |
 
-> 回填后，据此敲定：① 配方库初始清单（[agent-system.md](agent-system.md) §3）；② 一致性 spike 组合（A2）；
-> ③ M1 用哪台 ComfyUI、出哪张定稿图。
+## 解读（对方案的影响）
+
+1. **一致性方案要改向**（A2）：IPAdapter / InstantID / PuLID **都没装**，且它们多为 SDXL/Flux.1 时代产物，
+   对这台机的 2026 新基模（Flux-2 / Qwen-Image / Z-Image）未必有适配。本机最稳的一致性杠杆其实是
+   **① 本机训练角色 LoRA（TrainLoraNode 在）② Qwen-Image-Edit（参考编辑，适合把角色摆进场景）
+   ③ 基模原生参考条件（Flux-2 / Qwen 待 spike 验证）**。A2 spike 改测这三条，而非 InstantID/PuLID。
+2. **二次元缺专用基模**：图像基模偏写实/通用，没有 Pony/Illustrious 等动漫基模。要做好二次元，
+   需下载一个动漫基模（或先用 Flux/Qwen 的动漫能力 + 角色 LoRA 顶着）。→ 待定 D7。
+3. **云比预想的多**：除即梦/Qwen 外，ComfyUI 已带 Kling/Runway/Luma/Veo/Sora/Vidu partner 节点 →
+   云视频可**直接作为 ComfyUI 节点**调用（配 key 即用），可能省掉大部分自研云适配器。→ 影响 A3/架构。
+4. **视频主力 = WAN 2.2**（i2v 14B 定稿 / ti2v 5B 轻量草稿）；备选 Hunyuan 1.5 / LTXV。32G 显存够跑 14B fp8。
+5. **存储**：项目文件夹放 **NAS（37T）**；Orchestrator 与 ComfyUI **走 HTTP 交互**（容器隔离、无共享盘），
+   产物经 ComfyUI 输出口取回——印证「Orchestrator 不直接读 ComfyUI 文件系统」的设计。
+6. **要补的料**：ControlNet 模型、补帧 RIFE/FILM 模型；按需再装 LoRA 训练所需依赖。
+

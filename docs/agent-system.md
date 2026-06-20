@@ -38,11 +38,14 @@
 }
 ```
 
-MVP 配方清单（最少集合）：
-- `char_concept`（文生图人物定稿）、`char_turnaround`（多视角/三视图）
-- `keyframe_compose`（inpaint/controlnet 把角色摆进场景出关键帧）
-- `i2v_local`（本地图生视频，Wan 2.x）、`i2v_cloud`（云图生视频，即梦/Qwen）
-- `interp_upscale`（补帧 + 超分）
+MVP 配方清单（已按 5090 实装模型落地，见 [env-survey.md](env-survey.md)）：
+- `char_concept`（文生图人物定稿）—— **Flux-2 Klein**（质量）/ **Z-Image Turbo**（快草稿）/ Qwen-Image
+- `char_turnaround`（多视角 / 三视图）—— 同上基模 + 角度提示
+- `keyframe_compose`（把角色摆进场景出关键帧）—— **Qwen-Image-Edit**（参考编辑）+ ControlNet（待下载模型）
+- `i2v_local`（本地图生视频）—— **WAN 2.2 i2v 14B**（定稿）/ **ti2v 5B**（轻量草稿）；备选 Hunyuan 1.5 / LTXV
+- `t2v_local`（文生视频）—— WAN 2.2 t2v / HunyuanVideo 1.5 720p
+- `i2v_cloud`（云图生视频）—— 即梦 / Qwen，或 ComfyUI partner 节点（Kling / Runway / Luma / Veo…）
+- `interp_upscale`（补帧 + 超分）—— 4x-UltraSharp（超分 ✓）+ RIFE / FILM（补帧，待下载模型）
 
 配方用「节点 schema + 配方文本」做本地向量/关键词混合检索，供 `search_recipes` 调用。
 
@@ -70,11 +73,14 @@ MVP 配方清单（最少集合）：
 - **来源收敛（写实 + 二次元都支持，文本 + 参考图都支持）**：不论角色是**文本描述**生成还是用户**上传参考图**，
   最终都收敛成同一份 **角色档案（Character Bible 条目）**＝「定稿图集 + 身份锁定 + 触发词（+ 可选 LoRA）」。
   文本来源 = 先文生图定稿，再把定稿图当参考；参考图来源 = 用户直接给图。之后注入路径相同。
-- **身份锁定方法按美术风格选**（关键：不是一套打天下）：
-  - **写实 / 真人脸**：InstantID / PuLID / IPAdapter-FaceID（基于人脸识别）。
-  - **二次元 / 风格化**：IPAdapter（通用参考）+ **角色 LoRA**（强一致）+ 触发词；人脸识别类方法多不适用。
-  - **通用**：ControlNet 管构图 / 姿态，两风格都用。
+- **身份锁定方法（按 5090 实装能力定，见 [env-survey.md](env-survey.md)）**：本机未装 IPAdapter / InstantID /
+  PuLID，且它们对 2026 新基模（Flux-2 / Qwen-Image / Z-Image）未必适配，故主用——
+  - **角色 LoRA（首选，两风格通用）**：本机 `TrainLoraNode` 训练专属角色 LoRA，最强一致、不挑基模。
+  - **参考编辑 / 原生参考**：Qwen-Image-Edit（把角色摆进场景、保身份）；Flux-2 / Qwen 原生参考条件（待 spike 验证）。
+  - **ControlNet**：管构图 / 姿态（需先下载 controlnet 模型），两风格通用。
+  - 若 spike 证明有价值，再经 Manager 按需装 PuLID-Flux / IPAdapter（前提是支持本机基模）。
 - 之后所有镜头生成时，导演 Agent **自动注入**对应档案（参考图 + 上述风格相应的锁定 + 触发词），用户不必每次
   手动设。这正是「Agent 替你管繁琐参数」最有价值的体现。
 - 服装 / 道具 / 风格同理，可复用、可锁定。
-- **一致性质量是项目最大技术风险**，需在 M2 重点验证（写实 / 二次元**两条线**各验跨镜头角色 / 服装 / 风格漂移）。
+- **一致性质量是项目最大技术风险**，需在 M2 spike：以**角色 LoRA** 为主线，对比 Qwen-Image-Edit / 基模原生
+  参考，验跨镜头（含 → 关键帧 → WAN 图生视频整条链）的角色 / 服装 / 风格漂移；写实 / 二次元各跑一遍。

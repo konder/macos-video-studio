@@ -7,21 +7,24 @@
 
 ## A. 需要你拍板 / 需要外部事实（阻塞，优先）
 
-### A1. 5090 的 ComfyUI 环境清单 —— 最大解锁项（调研中）
-配方库、一致性栈、视频管线全都依赖「**5090 上实际装了哪些节点 / 模型 / 显存多少**」。
-- **执行**：见 [env-survey.md](env-survey.md) 调研清单（交给 agent 跑、回填）。
-- **阻塞**：A2、配方库初始清单、M1 的「出一张定稿图」、validate 的真实 `/object_info`。
+### A1. 5090 的 ComfyUI 环境清单 —— ✅ 已回填（2026-06）
+报告 + 解读见 [env-survey.md](env-survey.md)。要点：RTX 5090 32G · ComfyUI 0.24 · 图像 Flux-2 Klein /
+Qwen-Image / Z-Image · 视频 **WAN 2.2** 主力 · **可本机训 LoRA** · **IPAdapter/InstantID/PuLID 未装** ·
+ControlNet/补帧无模型需下载 · 已带 Kling/Runway/Luma/Veo 等云 partner 节点 · 项目存 NAS(37T)。
+据此已落地配方库（[agent-system.md](agent-system.md) §3）并改向 A2。
 
-### A2. 一致性技术栈选型（项目最大技术风险）
-因 D1/D2「都要」，identity 方法**按美术风格分两套**（详见 [agent-system.md](agent-system.md) §5）。要编码 M2 须定：
-- **写实 / 真人脸**：InstantID / PuLID / IPAdapter-FaceID（人脸识别）+ 写实基模（Flux / SDXL）。
-- **二次元 / 风格化**：IPAdapter（通用参考）+ **角色 LoRA**（强一致）+ 二次元基模；人脸识别类多不适用。
-- **跨链一致性**：定稿图 → 关键帧 → 图生视频（Wan）整条链上角色是否扛得住漂移。
-- 建议：**两条 spike 线**各验一套组合再定；依赖 A1。**这是最该尽早做实验的点。**
+### A2. 一致性技术栈选型（项目最大技术风险）—— 方向已定，待 spike 验证
+A1 显示 IPAdapter/InstantID/PuLID 未装、且对本机 2026 新基模未必适配，故**改向**（详见
+[agent-system.md](agent-system.md) §5 / [env-survey.md](env-survey.md) 解读）：
+- **主线：角色 LoRA**（本机 `TrainLoraNode` 训练，两风格通用、不挑基模）。
+- **对照：** Qwen-Image-Edit 参考编辑 / Flux-2·Qwen 原生参考条件。
+- **M2 spike**：以上方案 × 写实/二次元两风格，验「定稿 → 关键帧 → WAN i2v」整条链的漂移。
+- **依赖 D7**（二次元基模）；这仍是**最该尽早做实验**的点。
 
-### A3. 即梦（火山引擎）云接入方式 —— ✅ 已定（2026-06）
-**走官方 API**（火山引擎）。Qwen 通义万相（DashScope）同样官方 API。M6 实现时再收口具体鉴权 /
-submit/poll / 计费细节（属 B 类规格，非阻塞）。
+### A3. 云接入方式 —— ✅ 已定（2026-06）
+即梦**走火山引擎官方 API**；Qwen 走 DashScope。**新发现**：ComfyUI 已带 Kling/Runway/Luma/Veo/Sora/Vidu
+partner 节点（配 key 即用）→ 国际厂商优先**直接作为图节点**调用，省自研适配器；即梦无 partner 节点，仍走
+Orchestrator 适配器。M6 收口细节（B 类）。
 
 ### A4. 项目持久化形态 —— ✅ 已定（2026-06）
 **项目 = 一个文件夹**：`project.json`（Shots / 资产元数据 / Graph IR）+ 媒体文件 + 缩略图。
@@ -45,6 +48,9 @@ submit/poll / 计费细节（属 B 类规格，非阻塞）。
 - **D4 导出工程格式** —— ✅ 已定：**有序片段文件夹 + FCPXML**（FCPXML 同时被 Final Cut 与 DaVinci Resolve 导入）。
 - **D5 MVP 音频范围** —— ✅ 已定：**完全无音频**（对白 / 配音 / 音轨 / 口型全归后置剪辑 Agent）。
 - **D6 使用范围** —— ✅ 已定：**MVP 自用（单用户）**，不做多租户；后端保留多客户端接口（iPad / Web 不返工）。
+- **D7 二次元基模（A1 后新增，待定）**：本机图像基模偏写实/通用，无 Pony/Illustrious 等动漫基模。
+  二次元要做好需**下载一个动漫基模**（再配角色 LoRA），还是先用 Flux/Qwen 的动漫能力顶着？建议下载一个，
+  M2 spike 二次元线才有代表性。**需你定。**
 
 ## B. 我可以先出规格（非阻塞，我来定，你可后审）
 

@@ -55,7 +55,9 @@ Mac 只负责 UI、画布与预览；重活（推理、编排、Agent、素材�
 - **资产传输**：Orchestrator/ComfyUI 机器是产物的存储 + 下载源，Mac 端做本地缓存；千兆 LAN 下大视频
   传输不是瓶颈。约定缩略图/低码率预览先行、原始大文件按需拉取。
 - **断线恢复**：任务在服务器跑且状态持久化，Mac 重连后能拉回进行中任务的状态与已完成产物。
-- **5090 环境**：Blackwell 需较新 CUDA / PyTorch；Linux headless 跑 ComfyUI。
+- **5090 环境**（已就位，见 [env-survey.md](env-survey.md)）：Blackwell · CUDA 13 / PyTorch 2.12 · ComfyUI 0.24。
+  ComfyUI 跑在**容器 namespace**，故 **Orchestrator 经 HTTP 与 ComfyUI 交互、不直读其文件系统**；
+  项目 / 产物存 **NAS（37T，挂 `/mnt/nas`）**。
 - **多客户端友好**：后端无状态化交互 + 服务器侧持久化，为将来 iPad/Web 客户端留路。
 
 ## 4. 许可 / 分发

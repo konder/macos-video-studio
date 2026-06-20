@@ -22,18 +22,20 @@ MVP 覆盖到「选片 / 导出」，剪辑及之后由独立剪辑 Agent 后置
 
 | 阶段 | 主力 | 说明 |
 |---|---|---|
-| 定稿图 / 服装 / 道具 / 背景 / 风格 | **本地 5090** | Flux / Qwen-Image / SDXL + 一致性工具；可训 LoRA |
-| 分镜关键帧合成 | **本地 5090** | inpaint / controlnet / 区域控制 |
-| 图生视频镜头 | **本地 Wan 2.x ↔ 云即梦 / Qwen 路由** | 本地出草稿/可控；高质量或特定运镜走云。Agent 按镜头选 |
-| 补帧 / 超分 | 本地 5090 | |
+| 定稿图 / 服装 / 道具 / 背景 / 风格 | **本地 5090** | Flux-2 Klein / Qwen-Image / Z-Image Turbo；角色 LoRA 本机训练 |
+| 分镜关键帧合成 | **本地 5090** | Qwen-Image-Edit（参考编辑）/ ControlNet（待下载模型）|
+| 图生视频镜头 | **本地 WAN 2.2 ↔ 云路由** | 本地 i2v 14B 定稿 / ti2v 5B 草稿；云走即梦·Qwen 或 partner 节点（Kling/Runway/Luma/Veo…）。Agent 按镜头选 |
+| 补帧 / 超分 | 本地 5090 | 超分 4x-UltraSharp；补帧 RIFE / FILM（待下载模型）|
 | 剪辑 / 调色 / 字幕 / 音轨 / 口型 | 后置（剪辑 Agent） | ComfyUI 不擅长，独立做 |
 
 **智能路由**：导演 Agent 按「质量 / 速度 / 成本 / 可用性」选后端；允许用户固定偏好
 （如「草稿走本地、定稿走即梦」）。**每次云调用先预估、再确认、累计账单**，避免烧钱惊吓。
 
 云适配（异步作业模型 `submit → task_id → poll → 下载`）：
-- **即梦 / Dreamina**：火山引擎（Volcengine）视觉/视频接口。
+- **即梦 / Dreamina**：火山引擎（Volcengine）视觉/视频接口（无 ComfyUI partner 节点 → 走 Orchestrator 适配器）。
 - **Qwen 通义万相（Wan）**：阿里云 DashScope / 百炼，文生/图生视频。
+- **ComfyUI partner 节点**：Kling / Runway / Luma / Veo / Sora / Vidu 已内置，可直接作为图节点调用（配 key）——
+  国际厂商优先走这条，省自研适配器（见 [env-survey.md](env-survey.md)）。
 - 适配器统一管轮询、重试、限流、密钥、费用预估。
 
 ## 3. 反馈系统

@@ -12,9 +12,11 @@
 ## 里程碑
 
 - **M1 — Orchestrator 骨架**：FastAPI + Claude tool-use + 接现有 ComfyUI；图编辑原语 +
-  `validate`（对照 `/object_info`）+ `run`；跑通「自然语言 → 选配方 → 校验 → 出一张人物定稿图」。
+  `validate`（对照 `/object_info`）+ `run`；跑通「自然语言 → 选配方 → 校验 → 出一张人物定稿图」
+  （在 5090 上用 Z-Image Turbo / Flux-2 Klein 出图）。
   *不依赖 SwiftUI 画布，最快验证「Agent 搭图」是否靠谱。*
-- **M2 — 一致性**：角色档案（定稿图集 + identity + 触发词，必要时 LoRA）+ 自动注入；多视角定稿配方。
+- **M2 — 一致性**：以**角色 LoRA**（本机 TrainLoraNode 训练）为主线 + 定稿图集 + 触发词，自动注入；
+  spike 对照 Qwen-Image-Edit / 基模原生参考；写实·二次元两风格各验跨链漂移。
 - **M3 — 分镜 + 图生视频**：关键帧合成配方 + 图生视频配方（本地 Wan）+ 多 take。
 - **M4 — SwiftUI 客户端**：导演层（制片管理面，围绕分镜头）+ 技术层节点画布（展示 + 轻编辑）+
   对话 ↔ 画布连续滑块 + 远程连接配置。
@@ -37,4 +39,5 @@
 
 1. ~~即梦接入方式~~ —— ✅ 已定：走**火山引擎官方 API**（Qwen 走 DashScope，同为官方 API）。
 2. **macOS 原生 UI 核心问题**：下一步专门讨论，见 [native-ui.md](native-ui.md)。
-3. 配方库初始清单的最终确认（依赖 5090 上实际安装的 ComfyUI 节点/模型）。
+3. ~~配方库初始清单~~ —— ✅ 已按 5090 实装落地（[agent-system.md](agent-system.md) §3 / [env-survey.md](env-survey.md)）。
+4. **二次元基模**（D7）：是否下载专用动漫基模（本机无）——影响 M2 二次元线。
