@@ -114,24 +114,55 @@ final class AppState: ObservableObject {
 
     func refreshShots() async { await loadDetail() }
 
+    /// 成片:启动异步作业 → 轮询 /jobs 显示进度(契约的断线拉回机制)。
     func makeFilm() async {
         busy = true; activity = "生成成片中…"; defer { busy = false; activity = "" }
         chatLog.append("🎬 生成成片: \(script)")
         do {
-            let r = try await api.makeFilm(FilmRequest(
+            let jid = try await api.startFilm(FilmRequest(
                 project: project, character_image: characterImage,
                 character_desc: characterDesc, script: script, n_shots: nShots))
-            chatLog.append("✅ 出片 \(r.shots.filter { $0.video != nil }.count)/\(r.shots.count) 镜头")
-            await refreshShots()
+            while true {
+                try await Task.sleep(nanoseconds: 1_500_000_000)
+                let j = try await api.job(jid)
+                if let p = j.progress, let t = p.total, t > 0 {
+                    activity = "\(j.message ?? "处理中…") (\(p.step ?? 0)/\(t))"
+                } else { activity = j.message ?? "处理中…" }
+                if j.status == "done" { chatLog.append("✅ 成片完成"); break }
+                if j.status == "error" { chatLog.append("❌ \(j.error ?? "失败")"); break }
+            }
+            await loadDetail()
         } catch { chatLog.append("❌ \(error.localizedDescription)") }
     }
 
+    /// 与搭图 Agent 对话 → SSE 流式(tool_call 实时上屏,message 收尾)。
     func send(_ text: String) async {
         guard !text.isEmpty else { return }
-        busy = true; defer { busy = false }
+        busy = true; activity = "Agent 思考中…"; defer { busy = false; activity = "" }
         chatLog.append("🧑 \(text)")
-        do { chatLog.append("🤖 " + (try await api.chat(message: text, project: project))) }
-        catch { chatLog.append("❌ \(error.localizedDescription)") }
+        do {
+            let req = try api.chatRequest(message: text, project: project)
+            let (bytes, _) = try await URLSession.shared.bytes(for: req)
+            var event = "message"
+            var finalMsg = ""
+            for try await line in bytes.lines {
+                if line.hasPrefix("event:") {
+                    event = String(line.dropFirst(6)).trimmingCharacters(in: .whitespaces)
+                } else if line.hasPrefix("data:") {
+                    let raw = String(line.dropFirst(5)).trimmingCharacters(in: .whitespaces)
+                    guard let d = raw.data(using: .utf8),
+                          let obj = try? JSONSerialization.jsonObject(with: d) as? [String: Any] else { continue }
+                    switch event {
+                    case "tool_call": chatLog.append("🔧 " + (obj["tool"] as? String ?? "工具"))
+                    case "message": finalMsg = obj["text"] as? String ?? finalMsg
+                    case "error": finalMsg = "❌ " + (obj["error"] as? String ?? "出错")
+                    default: break
+                    }
+                }
+            }
+            chatLog.append("🤖 " + (finalMsg.isEmpty ? "(无输出)" : finalMsg))
+            await loadDetail()
+        } catch { chatLog.append("❌ \(error.localizedDescription)") }
     }
 
     /// 选用 take —— 走 op API,进统一历史(人/Agent 同构,无特权写路径)。

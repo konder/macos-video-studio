@@ -86,6 +86,16 @@ struct ProjectDetail: Codable {
     let seq: Int?
 }
 
+struct JobProgress: Codable, Hashable { let step: Int?; let total: Int? }
+struct Job: Codable, Hashable {
+    let id: String
+    let status: String          // queued | running | done | error
+    let message: String?
+    let progress: JobProgress?
+    let cost: Double?
+    let error: String?
+}
+
 struct ProjectsList: Codable { let projects: [String] }
 struct ShotsResponse: Codable { let shots: [Shot] }
 struct RecipesResponse: Codable { let recipes: [Recipe] }

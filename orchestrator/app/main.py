@@ -8,11 +8,15 @@
 """
 from __future__ import annotations
 
+import asyncio
+import json
 import os
+import queue
+import threading
 import time
 
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
 from .agent import make_client, run_agent
@@ -21,6 +25,7 @@ from .comfy import ComfyClient
 from .config import settings
 from .director import produce_film
 from .export import export_project
+from .jobs import JOBS
 from .ops import OpError, apply_project_ops, record_change
 from .recipes import RecipeRegistry
 from .store import ProjectStore
@@ -105,7 +110,22 @@ def graph_validate(body: GraphIn):
 
 @app.post("/graphs/run")
 def graph_run(body: GraphIn):
-    return run_ir(body.graph, _comfy, _store(body.project))
+    """直接跑一张图 IR → 异步作业(契约:run 返回 job_id)。"""
+    jid = JOBS.create("graph", body.project, total=1, message="提交执行…")
+
+    def work():
+        JOBS.update(jid, status="running")
+        try:
+            res = run_ir(body.graph, _comfy, _store(body.project))
+            if res.get("error"):
+                JOBS.update(jid, status="error", error=str(res["error"]), message="执行出错")
+            else:
+                JOBS.update(jid, status="done", result=res, message="完成")
+        except Exception as e:  # noqa: BLE001
+            JOBS.update(jid, status="error", error=str(e), message=f"失败: {e}")
+
+    threading.Thread(target=work, daemon=True).start()
+    return {"ok": True, "job_id": jid}
 
 
 # ---- 成片(导演 Agent:剧本→多镜头) ----
@@ -120,13 +140,53 @@ class FilmIn(BaseModel):
 
 @app.post("/films")
 def make_film(body: FilmIn):
+    """成片改为异步作业:立刻返回 job_id,后台线程跑生成,进度写 JOBS(轮询/WS 取回)。"""
     if not settings.model:
         raise HTTPException(400, "未设 AGENT_MODEL")
-    client = make_client()
-    res = produce_film(_registry, _recipes, _store(body.project), body.character_image,
-                       body.character_desc, body.script, client, settings.model,
-                       n_shots=body.n_shots, assets=body.assets)
-    return res
+    jid = JOBS.create("film", body.project, total=body.n_shots, message="导演拆镜中…")
+
+    def work():
+        JOBS.update(jid, status="running")
+        try:
+            client = make_client()
+            res = produce_film(_registry, _recipes, _store(body.project), body.character_image,
+                               body.character_desc, body.script, client, settings.model,
+                               n_shots=body.n_shots, assets=body.assets,
+                               on_event=lambda m: JOBS.event(jid, m))
+            JOBS.update(jid, status="done", result=res, message="完成")
+        except Exception as e:  # noqa: BLE001
+            JOBS.update(jid, status="error", error=str(e), message=f"失败: {e}")
+
+    threading.Thread(target=work, daemon=True).start()
+    return {"ok": True, "job_id": jid}
+
+
+@app.get("/jobs/{job_id}")
+def get_job(job_id: str):
+    j = JOBS.get(job_id)
+    if not j:
+        raise HTTPException(404, f"未知作业 {job_id}")
+    return j
+
+
+@app.websocket("/events")
+async def events_ws(ws: WebSocket):
+    """事件流:推送本项目作业快照(状态/进度/消息/费用)。无新事件则静默。
+    断线后客户端可改用 GET /jobs/{id} 拉回(契约)。节点级 latent 预览需订阅 ComfyUI WS,后续接。"""
+    await ws.accept()
+    project = ws.query_params.get("project")
+    seen: dict[str, float] = {}
+    try:
+        while True:
+            for j in JOBS.list(project):
+                if seen.get(j["id"]) != j["updated"]:
+                    seen[j["id"]] = j["updated"]
+                    await ws.send_json(j)
+            await asyncio.sleep(0.5)
+    except WebSocketDisconnect:
+        pass
+    except Exception:  # noqa: BLE001
+        pass
 
 
 # ---- op 协同(人/Agent 同构改 IR) ----
@@ -290,7 +350,29 @@ class ChatIn(BaseModel):
 
 @app.post("/chat")
 def chat(body: ChatIn):
-    ctx = Context(ComfyClient(), _recipes, _store(body.project))
-    events: list[dict] = []
-    text, _ = run_agent(body.message, ctx, on_event=events.append)
-    return {"message": text, "events": events, "graph": ctx.graph}
+    """搭图 Agent 对话 → SSE 流式(api-contract):tool_call/tool_result/message/done。
+    Agent 在后台线程跑,事件经线程安全队列流出。"""
+    q: "queue.Queue" = queue.Queue()
+
+    def work():
+        try:
+            ctx = Context(ComfyClient(), _recipes, _store(body.project))
+            text, _ = run_agent(body.message, ctx, on_event=q.put)
+            q.put({"type": "message", "text": text, "graph": ctx.graph})
+        except Exception as e:  # noqa: BLE001
+            q.put({"type": "error", "error": str(e)})
+        finally:
+            q.put(None)
+
+    threading.Thread(target=work, daemon=True).start()
+
+    def gen():
+        while True:
+            e = q.get()
+            if e is None:
+                yield "event: done\ndata: {}\n\n"
+                break
+            etype = e.get("type", "message")
+            yield f"event: {etype}\ndata: {json.dumps(e, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(gen(), media_type="text/event-stream")

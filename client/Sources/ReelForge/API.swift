@@ -67,7 +67,23 @@ struct API {
         let obj = (try JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
         return obj["graph"] as? [String: Any] ?? [:]
     }
-    func makeFilm(_ req: FilmRequest) async throws -> FilmResponse { try await post("films", req) }
+    /// 启动成片异步作业,返回 job_id。
+    func startFilm(_ req: FilmRequest) async throws -> String {
+        struct R: Decodable { let job_id: String? }
+        let r: R = try await post("films", req)
+        return r.job_id ?? ""
+    }
+    func job(_ id: String) async throws -> Job { try await get("jobs/\(id)") }
+
+    /// 构建 SSE 对话请求(调用方用 URLSession.bytes 读流)。
+    func chatRequest(message: String, project: String) throws -> URLRequest {
+        var req = URLRequest(url: try url("chat"))
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        struct In: Encodable { let message: String; let project: String }
+        req.httpBody = try JSONEncoder().encode(In(message: message, project: project))
+        return req
+    }
 
     /// 提交一段 ops 作为一个变更(人/Agent 同构,进统一历史)。返回新 seq。
     /// ops 取值异构,用 JSONSerialization 编码。
@@ -82,11 +98,6 @@ struct API {
         let (data, _) = try await URLSession.shared.data(for: req)
         struct R: Decodable { let ok: Bool?; let seq: Int? }
         return (try JSONDecoder().decode(R.self, from: data)).seq ?? 0
-    }
-    func chat(message: String, project: String) async throws -> String {
-        struct In: Encodable { let message: String; let project: String }
-        let r: ChatResponse = try await post("chat", In(message: message, project: project))
-        return r.message ?? ""
     }
     func export(project: String) async throws -> [String: String] {
         struct Empty: Encodable {}
