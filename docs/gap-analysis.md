@@ -88,3 +88,23 @@
 **已知剩余缺口(诚实记录)**:ComfyUI 节点级进度/latent 中间预览(需 ComfyUI WS 订阅);
 add_node 的 UI(需 object_info 节点选择器,当前可改参/删节点/连线靠 op 但无新增 UI);
 "改档案→一键重生成受影响镜头"按钮已留位未接;存储未落 NAS(dev)。
+
+## 复审补充(亲自通读 data-model.md / agent-system.md 后新发现)
+
+审计 agent 当时低估、或实现夸大的偏离,补记于此:
+
+- 🔴 **搭图 Agent 工具集不全(违反对称写入在 Agent 端的闭合)**:agent-system §4 要求搭图 Agent 有
+  add_node/connect/set_param/delete_node/replace_subgraph/estimate/run_to/submit_cloud;实际
+  agent.py 只有 search_recipes/instantiate_recipe/validate/run 四个。op 已在 API 层齐全且人(画布)
+  能发,但 **Agent 本身调不到编辑原语** → "对称写入"目前只在 API 层成立,Agent 操作端未接上改图能力。
+  **下一步首选修这条。**
+- 🟡 **云任务未做成 IR 虚拟节点**:data-model/api-contract 要求云任务在 IR 用虚拟节点(CloudVideo)
+  表示;实际 ⑤ 是直连适配器旁路(/generate),不进 IR。(⑤ commit message 写"CloudVideo 虚拟节点"
+  不准确,实际未实现。)
+- 🟡 **持久化目录结构不符 data-model §4**:文档要 shots/<id>/{keyframes,takes,previews}、
+  assets/<type>/<id>/ 嵌套 + take 同名 .json 边车;实际为扁平 assets/ 一锅端、take 元数据存
+  project.json。功能等价,形态不符。
+- 🟢 RecipeRegistry.search 忽略 intent 返回全部;Agent 改图缺逐条「为什么这么搭」rationale(可解释性弱)。
+
+**诚实结论**:不能保证"零偏离"。地基级不变量(单模型/op/历史/两层/异步/费用闸)已对齐;但 Agent
+编辑工具集、云虚拟节点、目录形态仍偏。动手前必读 native-ui/data-model/agent-system/api-contract。
