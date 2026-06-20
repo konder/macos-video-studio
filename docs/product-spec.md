@@ -82,6 +82,20 @@ ReelForge 本质是一个**视频生成的工作流软件**。把"用 AI 生成�
 ### 3.6 待确认 🟡
 - 后续扩展:角色三视角的分辨率/张数、场景平面投影图种类等专门产出规格。
 
+### 3.7 实现状态(已落地 + 5090 验证)✅
+- **创建**:三种方式(上传 / 文字 / 文字+参考图)。
+  - 后端 `POST /projects/{name}/assets/generate`(有参考图→keyframe_edit,无→char_concept),
+    实例化的图作为 `asset.graph` 落库,产物入 `finals`;异步作业(JOBS,轮询 /jobs)。
+  - 上传 `POST /projects/{name}/upload` → `create_character`/`create_asset` op(带 graph/prompt)。
+- **技术层流程可查/可改**:节点画布泛化为 `GraphRef{kind,id}`(shot|asset|character 同一画布);
+  `GET /projects/{name}/assets/{id}/graph` 取流程;改参/删节点经 `/projects/{name}/ops`
+  (图级 op 目标对称:shot/asset/character),进统一历史、可撤销(inverse 保目标键)。
+- **重新生成**:`POST /projects/{name}/assets/{id}/regenerate` 按当前(可能已编辑)流程重出图,
+  更新 finals(op 入历史)。
+- **客户端**:BibleStrip「新建」表单(类型+方式);资产/角色详情「生成流程(节点图)」+「重新生成」按钮。
+- 验证:文字生成 styleframe/prop → finals+graph;asset 目标 set_param(steps 8→6,inverse 正确)→流程更新。
+- 提交:3e09ee4 / ac9073d / 3add626(见 git log)。
+
 ---
 
 ## 4. 分镜头制作 ⏳(下一节对焦)
