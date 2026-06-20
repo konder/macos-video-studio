@@ -36,3 +36,7 @@ Qwen-edit 把定稿编进场景(对比 anchor):
 ## 阶段3.5 多资产组合:角色 + 服装资产 → 组合关键帧
 角色(image1,红风衣)+ 服装资产(image2,白羽绒服)→ 同一张脸换上新服装(Qwen-edit 多图参考)。
 ![compose](stage35-compose.png)
+
+## 阶段3+ 导演自动编排资产
+导演读剧本+资产库,**自动把"白羽绒服"资产分配给镜头2**并组合出片(雪天换装,同一张脸):
+![director asset](stage3-director-asset.png)
