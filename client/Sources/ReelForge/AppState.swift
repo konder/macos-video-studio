@@ -32,14 +32,15 @@ final class AppState: ObservableObject {
     @Published var rightCollapsed = false
     @Published var activity = ""                     // 全局活动栏当前动作
 
-    // 技术层:钻进某镜头任务的节点画布
-    @Published var openGraphShot: String?
+    // 技术层:钻进某镜头/资产/角色的节点画布(流程图)。kind: shot|asset|character
+    struct GraphRef: Equatable { let kind: String; let id: String }
+    @Published var graphRef: GraphRef?
     @Published var graphNodes: [NodeVM] = []
     @Published var graphLinks: [GraphLink] = []
 
     // 协同:省心↔掌控滑块(0 省心=自动应用 / 1 中 / 2 掌控=暂存 Proposed)
     @Published var approvalMode = 0
-    struct ProposedEdit: Identifiable { let id = UUID(); let shot: String; let node: String; let widget: String; let oldValue: String; let newValue: Any; let newDisplay: String }
+    struct ProposedEdit: Identifiable { let id = UUID(); let node: String; let widget: String; let oldValue: String; let newValue: Any; let newDisplay: String }
     @Published var proposed: [ProposedEdit] = []
     @Published var locks: [String: LockInfo] = [:]
 
@@ -274,10 +275,36 @@ final class AppState: ObservableObject {
         do {
             let g = try await api.buildGraph(project: project, shot: shot, task: task)
             let (n, l) = parseGraph(g)
-            graphNodes = n; graphLinks = l; openGraphShot = shot
+            graphNodes = n; graphLinks = l; graphRef = GraphRef(kind: "shot", id: shot)
         } catch { chatLog.append("❌ 构建节点图失败: \(error.localizedDescription)") }
     }
-    func closeGraph() { openGraphShot = nil; graphNodes = []; graphLinks = []; proposed = [] }
+
+    /// 打开资产/角色的生成流程(技术层)。kind: asset|character。
+    func openAssetGraph(_ id: String, kind: String = "asset") async {
+        busy = true; activity = "载入流程…"; defer { busy = false; activity = "" }
+        do {
+            let g = try await api.assetGraph(project: project, id: id)
+            let (n, l) = parseGraph(g)
+            graphNodes = n; graphLinks = l; graphRef = GraphRef(kind: kind, id: id)
+        } catch { chatLog.append("❌ 载入流程失败: \(error.localizedDescription)") }
+    }
+
+    /// 按资产当前流程重新生成,更新 finals(经 op + 历史)。
+    func regenerateAsset(_ id: String) async {
+        busy = true; activity = "重新生成…"; defer { busy = false; activity = "" }
+        do {
+            let jid = try await api.regenerateAsset(project: project, id: id)
+            while true {
+                try await Task.sleep(nanoseconds: 1_500_000_000)
+                let j = try await api.job(jid)
+                activity = j.message ?? "处理中…"
+                if j.status == "done" { break }
+                if j.status == "error" { chatLog.append("❌ \(j.error ?? "重生成失败")"); break }
+            }
+            await loadDetail()
+        } catch { chatLog.append("❌ 重新生成失败: \(error.localizedDescription)") }
+    }
+    func closeGraph() { graphRef = nil; graphNodes = []; graphLinks = []; proposed = [] }
 
     private func coerce(_ s: String) -> Any {
         if let i = Int(s) { return i }
@@ -285,30 +312,35 @@ final class AppState: ObservableObject {
         if s == "true" { return true }; if s == "false" { return false }
         return s
     }
+    /// 给图级 op 注入当前目标(shot/asset/character)。
+    private func targetOp(_ base: [String: Any]) -> [String: Any] {
+        guard let r = graphRef else { return base }
+        var op = base; op[r.kind] = r.id; return op
+    }
 
     /// 改节点参数:省心模式直接发 op(自动应用+可撤销);掌控模式暂存为 Proposed。
     func editParam(node: String, widget: String, old: String, text: String) async {
-        guard let shot = openGraphShot, text != old else { return }
+        guard graphRef != nil, text != old else { return }
         let val = coerce(text)
         if approvalMode == 0 {
             do {
-                try await api.shotOps(project: project, shot: shot,
-                    ops: [["op": "set_param", "shot": shot, "node": node, "widget": widget, "value": val]],
-                    rationale: "改参 \(widget): \(old)→\(text)")
+                try await api.submitChange(project: project,
+                    ops: [targetOp(["op": "set_param", "node": node, "widget": widget, "value": val])],
+                    author: "human", rationale: "改参 \(widget): \(old)→\(text)")
                 await reopenGraph()
             } catch { chatLog.append("❌ 改参失败: \(error.localizedDescription)") }
         } else {
             proposed.removeAll { $0.node == node && $0.widget == widget }
-            proposed.append(ProposedEdit(shot: shot, node: node, widget: widget, oldValue: old, newValue: val, newDisplay: text))
+            proposed.append(ProposedEdit(node: node, widget: widget, oldValue: old, newValue: val, newDisplay: text))
         }
     }
 
     /// 接受全部 Proposed:作为一个变更提交,入历史。
     func acceptProposed() async {
-        guard let shot = openGraphShot, !proposed.isEmpty else { return }
-        let ops = proposed.map { ["op": "set_param", "shot": $0.shot, "node": $0.node, "widget": $0.widget, "value": $0.newValue] as [String: Any] }
+        guard graphRef != nil, !proposed.isEmpty else { return }
+        let ops = proposed.map { targetOp(["op": "set_param", "node": $0.node, "widget": $0.widget, "value": $0.newValue]) }
         do {
-            try await api.shotOps(project: project, shot: shot, ops: ops, rationale: "接受 \(ops.count) 处改参")
+            try await api.submitChange(project: project, ops: ops, author: "human", rationale: "接受 \(ops.count) 处改参")
             proposed = []
             await reopenGraph()
         } catch { chatLog.append("❌ 应用失败: \(error.localizedDescription)") }
@@ -316,18 +348,21 @@ final class AppState: ObservableObject {
     func discardProposed() { proposed = [] }
 
     func deleteNode(_ node: String) async {
-        guard let shot = openGraphShot else { return }
+        guard graphRef != nil else { return }
         do {
-            try await api.shotOps(project: project, shot: shot,
-                ops: [["op": "delete_node", "shot": shot, "node": node]], rationale: "删除节点 \(node)")
+            try await api.submitChange(project: project,
+                ops: [targetOp(["op": "delete_node", "node": node])], author: "human", rationale: "删除节点 \(node)")
             await reopenGraph()
         } catch { chatLog.append("❌ 删除失败: \(error.localizedDescription)") }
     }
 
     private func reopenGraph() async {
-        guard let shot = openGraphShot else { return }
-        do { let g = try await api.buildGraph(project: project, shot: shot); let (n, l) = parseGraph(g); graphNodes = n; graphLinks = l }
-        catch { }
+        guard let r = graphRef else { return }
+        do {
+            let g = r.kind == "shot" ? try await api.buildGraph(project: project, shot: r.id)
+                                     : try await api.assetGraph(project: project, id: r.id)
+            let (n, l) = parseGraph(g); graphNodes = n; graphLinks = l
+        } catch { }
     }
 
     /// 撤销最近一个可撤销变更。

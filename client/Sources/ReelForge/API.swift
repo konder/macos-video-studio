@@ -100,6 +100,19 @@ struct API {
         (try await get("projects/\(project)/locks") as LocksResponse).locks
     }
 
+    /// 取资产/角色的生成流程 IR。
+    func assetGraph(project: String, id: String) async throws -> [String: Any] {
+        let (data, _) = try await URLSession.shared.data(from: try url("projects/\(project)/assets/\(id)/graph"))
+        let obj = (try JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+        return obj["graph"] as? [String: Any] ?? [:]
+    }
+    func regenerateAsset(project: String, id: String) async throws -> String {
+        struct E: Encodable {}
+        struct R: Decodable { let job_id: String? }
+        let r: R = try await post("projects/\(project)/assets/\(id)/regenerate", E())
+        return r.job_id ?? ""
+    }
+
     func buildGraph(project: String, shot: String, task: String = "keyframe_edit") async throws -> [String: Any] {
         var req = URLRequest(url: try url("projects/\(project)/shots/\(shot)/graph/build?task=\(task)"))
         req.httpMethod = "POST"

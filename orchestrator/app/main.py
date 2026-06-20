@@ -484,6 +484,58 @@ def generate_asset(name: str, body: AssetGenIn):
     return {"ok": True, "job_id": jid}
 
 
+@app.get("/projects/{name}/assets/{asset_id}/graph")
+def get_asset_graph(name: str, asset_id: str):
+    """取资产/角色的生成流程 IR(技术层节点画布用)。"""
+    doc = _store(name).load()
+    ent = next((a for a in doc.get("assets", []) if a["id"] == asset_id), None) or \
+        next((c for c in doc.get("characters", []) if c["id"] == asset_id), None)
+    if ent is None:
+        raise HTTPException(404, f"未知资产/角色 {asset_id}")
+    return {"ok": True, "graph": ent.get("graph") or {"nodes": {}}}
+
+
+@app.post("/projects/{name}/assets/{asset_id}/regenerate")
+def regenerate_asset(name: str, asset_id: str):
+    """按资产当前(可能已被编辑过的)生成流程重新出图,产物更新到 finals(经 op 入历史)。"""
+    store = _store(name)
+    doc = store.load()
+    is_char = False
+    ent = next((a for a in doc.get("assets", []) if a["id"] == asset_id), None)
+    if ent is None:
+        ent = next((c for c in doc.get("characters", []) if c["id"] == asset_id), None)
+        is_char = ent is not None
+    if ent is None:
+        raise HTTPException(404, f"未知资产/角色 {asset_id}")
+    if not ent.get("graph"):
+        raise HTTPException(400, "该资产没有可执行的生成流程(纯上传/纯文字)")
+    jid = JOBS.create("asset", name, total=1, message="重新生成…")
+    graph = ent["graph"]
+
+    def work():
+        JOBS.update(jid, status="running")
+        try:
+            comfy = _registry.route("edit").client
+            errs = validate_ir(graph, comfy.object_info())
+            if errs:
+                raise RuntimeError(str(errs))
+            res = run_ir(graph, comfy, store)
+            if not res.get("assets"):
+                raise RuntimeError(res.get("error", "无产物"))
+            d = store.load()
+            field_op = "set_character_field" if is_char else "set_asset_field"
+            record_change(d, [{"op": field_op, "id": asset_id, "field": "finals", "value": res["assets"]}],
+                          author="human", rationale="重新生成资产")
+            d["history"][-1]["ts"] = time.time()
+            store._write(d)
+            JOBS.update(jid, status="done", message="完成", result={"finals": res["assets"]})
+        except Exception as e:  # noqa: BLE001
+            JOBS.update(jid, status="error", error=str(e), message=f"失败: {e}")
+
+    threading.Thread(target=work, daemon=True).start()
+    return {"ok": True, "job_id": jid}
+
+
 @app.get("/projects/{name}/state")
 def project_state(name: str, since: int = 0):
     """断线重连/增量同步:since=0 返回全量 doc;否则返回 seq 之后的变更。"""

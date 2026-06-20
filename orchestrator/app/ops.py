@@ -63,6 +63,30 @@ def _shot(doc: dict, sid: str) -> dict:
     return s
 
 
+def _graph_entity(doc: dict, op: dict) -> dict:
+    """图级 op 的目标实体:镜头 / 资产 / 角色(都可挂 graph)。"""
+    if "shot" in op:
+        return _shot(doc, op["shot"])
+    if "asset" in op:
+        e = next((a for a in doc.get("assets", []) if a["id"] == op["asset"]), None)
+        if e is None:
+            raise OpError(f"未知资产: {op['asset']}")
+        return e
+    if "character" in op:
+        e = next((c for c in doc.get("characters", []) if c["id"] == op["character"]), None)
+        if e is None:
+            raise OpError(f"未知角色: {op['character']}")
+        return e
+    raise OpError("图级 op 缺目标(shot/asset/character)")
+
+
+def _graph_entity_or_none(doc: dict, op: dict) -> dict | None:
+    try:
+        return _graph_entity(doc, op)
+    except OpError:
+        return None
+
+
 def apply_project_ops(doc: dict, ops: list[dict]) -> dict:
     """对项目 doc 就地应用一组有序 op,返回 doc。图级 op 走 apply_ops 落到 shot.graph。
 
@@ -71,13 +95,13 @@ def apply_project_ops(doc: dict, ops: list[dict]) -> dict:
     """
     for op in ops:
         kind = op.get("op")
-        # ---- 图级(改某镜头 graph IR)----
+        # ---- 图级(改某镜头/资产/角色的 graph IR;目标对称)----
         if kind in _GRAPH_OPS:
-            shot = _shot(doc, op["shot"])
-            shot["graph"] = apply_ops(shot.get("graph") or {"nodes": {}}, [op])
+            ent = _graph_entity(doc, op)
+            ent["graph"] = apply_ops(ent.get("graph") or {"nodes": {}}, [op])
         elif kind == "set_pos":
-            shot = _shot(doc, op["shot"])
-            nodes = (shot.setdefault("graph", {"nodes": {}})).setdefault("nodes", {})
+            ent = _graph_entity(doc, op)
+            nodes = (ent.setdefault("graph", {"nodes": {}})).setdefault("nodes", {})
             if op["node"] not in nodes:
                 raise OpError(f"节点不存在: {op['node']}")
             nodes[op["node"]]["pos"] = op["pos"]
@@ -129,9 +153,9 @@ def apply_project_ops(doc: dict, ops: list[dict]) -> dict:
                 "id": op["id"], "type": op.get("type", "prop"), "name": op.get("name", ""),
                 "prompt": op.get("prompt", ""), "finals": op.get("finals", []),
                 "meta": op.get("meta", {}), "graph": op.get("graph")})
-        elif kind == "set_character_field":   # 身份锁定卡:name/trigger/lora/similarity
+        elif kind == "set_character_field":   # 身份锁定卡:name/trigger/lora/similarity/finals
             field = op["field"]
-            if field not in {"name", "trigger", "lora", "similarity"}:
+            if field not in {"name", "trigger", "lora", "similarity", "finals"}:
                 raise OpError(f"角色不可改字段: {field}")
             c = next((c for c in doc.get("characters", []) if c["id"] == op["id"]), None)
             if c is None:
@@ -139,7 +163,7 @@ def apply_project_ops(doc: dict, ops: list[dict]) -> dict:
             c[field] = op["value"]
         elif kind == "set_asset_field":
             field = op["field"]
-            if field not in {"name", "prompt", "type"}:
+            if field not in {"name", "prompt", "type", "finals"}:
                 raise OpError(f"资产不可改字段: {field}")
             a = next((a for a in doc.get("assets", []) if a["id"] == op["id"]), None)
             if a is None:
@@ -180,12 +204,14 @@ def invert_ops(doc: dict, ops: list[dict]) -> list[dict] | None:
             prev = (doc.get("meta") or {}).get(op["key"])
             inv.append({"op": "set_meta", "key": op["key"], "value": prev})
         elif k == "set_param":
-            n = ((_find_shot(doc, op["shot"]) or {}).get("graph") or {}).get("nodes", {}).get(op["node"], {})
-            inv.append({"op": "set_param", "shot": op["shot"], "node": op["node"],
+            n = ((_graph_entity_or_none(doc, op) or {}).get("graph") or {}).get("nodes", {}).get(op["node"], {})
+            tgt = {t: op[t] for t in ("shot", "asset", "character") if t in op}
+            inv.append({"op": "set_param", **tgt, "node": op["node"],
                         "widget": op["widget"], "value": (n.get("inputs") or {}).get(op["widget"])})
         elif k == "set_pos":
-            n = ((_find_shot(doc, op["shot"]) or {}).get("graph") or {}).get("nodes", {}).get(op["node"], {})
-            inv.append({"op": "set_pos", "shot": op["shot"], "node": op["node"], "pos": n.get("pos", [0, 0])})
+            n = ((_graph_entity_or_none(doc, op) or {}).get("graph") or {}).get("nodes", {}).get(op["node"], {})
+            tgt = {t: op[t] for t in ("shot", "asset", "character") if t in op}
+            inv.append({"op": "set_pos", **tgt, "node": op["node"], "pos": n.get("pos", [0, 0])})
         elif k == "set_refs":
             inv.append({"op": "set_refs", "shot": op["shot"], "refs": (_find_shot(doc, op["shot"]) or {}).get("refs", [])})
         elif k == "set_shot_field":

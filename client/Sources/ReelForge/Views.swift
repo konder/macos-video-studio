@@ -374,7 +374,7 @@ struct MiddlePane: View {
         VStack(spacing: 0) {
             header
             Rectangle().fill(Theme.border).frame(height: 1)
-            if state.openGraphShot != nil {
+            if state.graphRef != nil {
                 NodeCanvasView()
             } else {
                 ScrollView {
@@ -407,9 +407,9 @@ struct MiddlePane: View {
                 Button { state.leftCollapsed = false } label: { Image(systemName: "sidebar.left") }
                     .buttonStyle(.plain).foregroundStyle(Theme.inkSoft)
             }
-            if state.openGraphShot != nil {
+            if state.graphRef != nil {
                 Button { state.closeGraph() } label: { Image(systemName: "chevron.left").font(.system(size: 13, weight: .semibold)) }
-                    .buttonStyle(.plain).foregroundStyle(Theme.accent).help("返回导演层")
+                    .buttonStyle(.plain).foregroundStyle(Theme.accent).help("返回")
             }
             Text(breadcrumb).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.ink).lineLimit(1)
             Spacer()
@@ -419,9 +419,13 @@ struct MiddlePane: View {
     }
 
     var breadcrumb: String {
-        if let g = state.openGraphShot {
-            let i = (state.shots.firstIndex { $0.id == g }).map { $0 + 1 } ?? 0
-            return "镜 \(i) · 生成 · 节点图(技术层)"
+        if let r = state.graphRef {
+            if r.kind == "shot" {
+                let i = (state.shots.firstIndex { $0.id == r.id }).map { $0 + 1 } ?? 0
+                return "镜 \(i) · 生成 · 节点图(技术层)"
+            }
+            let nm = state.asset(r.id)?.name ?? state.character(r.id)?.name ?? r.id
+            return "\(nm) · 生成流程(技术层)"
         }
         switch state.selection {
         case .overview: return "\(state.project) · 概览"
@@ -678,6 +682,12 @@ struct CharacterDetail: View {
                         HStack(spacing: 10) { ForEach(f, id: \.self) { Thumb(path: $0, size: CGSize(width: 180, height: 240), icon: "person") } }
                     }
                 } else { Text("暂无定稿图").font(.system(size: 12)).foregroundStyle(Theme.inkSoft) }
+                HStack(spacing: 8) {
+                    Button { Task { await state.openAssetGraph(c.id, kind: "character") } } label: { Label("生成流程(节点图)", systemImage: "chevron.left.forwardslash.chevron.right").font(.system(size: 12)) }
+                        .buttonStyle(.bordered).tint(Theme.inkSoft)
+                    Button { Task { await state.regenerateAsset(c.id) } } label: { Label("重新生成", systemImage: "arrow.triangle.2.circlepath").font(.system(size: 12)) }
+                        .buttonStyle(.borderedProminent).tint(Theme.accent).disabled(state.busy)
+                }.padding(.top, 2)
             }.card()
             IdentityLockCard(c: c).id(c.id)
             // 一致性:被哪些镜头引用 + 一键重生成
@@ -744,6 +754,12 @@ struct AssetDetail: View {
                     }
                 } else { Text("暂无参考图").font(.system(size: 12)).foregroundStyle(Theme.inkSoft) }
                 if let p = a.prompt, !p.isEmpty { Text(p).font(.system(size: 12)).foregroundStyle(Theme.inkSoft) }
+                HStack(spacing: 8) {
+                    Button { Task { await state.openAssetGraph(a.id, kind: "asset") } } label: { Label("生成流程(节点图)", systemImage: "chevron.left.forwardslash.chevron.right").font(.system(size: 12)) }
+                        .buttonStyle(.bordered).tint(Theme.inkSoft)
+                    Button { Task { await state.regenerateAsset(a.id) } } label: { Label("重新生成", systemImage: "arrow.triangle.2.circlepath").font(.system(size: 12)) }
+                        .buttonStyle(.borderedProminent).tint(Theme.accent).disabled(state.busy)
+                }.padding(.top, 2)
             }.card()
         }
     }
