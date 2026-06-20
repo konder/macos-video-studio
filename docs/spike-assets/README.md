@@ -44,3 +44,7 @@ Qwen-edit 把定稿编进场景(对比 anchor):
 ## 阶段6 云端 reference-to-video(火山 Agent Plan · 豆包 Seedance)
 经火山方舟 Agent Plan(`/api/plan/v3`,doubao-seedance-1.5-pro)图生视频,端到端跑通(create→poll→download):
 ![cloud seedance](stage6-cloud-seedance.gif)
+
+## 阶段6+ 本地关键帧 → 火山云 i2v(完整闭环)
+我们生成的角色关键帧(经公网托管)→ 火山 Agent Plan Seedance 1.5-pro 图生视频:
+![cloud ourkf](stage6-cloud-ourkf.gif)
