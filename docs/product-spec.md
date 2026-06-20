@@ -93,6 +93,8 @@ ReelForge 本质是一个**视频生成的工作流软件**。把"用 AI 生成�
 - **重新生成**:`POST /projects/{name}/assets/{id}/regenerate` 按当前(可能已编辑)流程重出图,
   更新 finals(op 入历史)。
 - **客户端**:BibleStrip「新建」表单(类型+方式);资产/角色详情「生成流程(节点图)」+「重新生成」按钮。
+- **Agent 也能建资产(对称)**:搭图 Agent 加 `save_asset(atype,name)` 工具,"帮我生成一个角色"→
+  run 出图后登记为资产(进资产库/左侧树),与人用表单同构。
 - 验证:文字生成 styleframe/prop → finals+graph;asset 目标 set_param(steps 8→6,inverse 正确)→流程更新。
 - 提交:3e09ee4 / ac9073d / 3add626(见 git log)。
 

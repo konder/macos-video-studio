@@ -98,6 +98,21 @@ TOOL_SCHEMAS = [
         "description": "提交当前 Graph IR 到 ComfyUI 执行,等待完成并取回产物(写入项目文件夹)。",
         "input_schema": {"type": "object", "properties": {}, "required": []},
     },
+    {
+        "name": "save_asset",
+        "description": "把最近 run 的产物 + 当前流程登记为可复用资产(会出现在资产库/左侧树)。"
+                       "用户想要一个角色/服装/道具/场景/风格资产时,run 出图后必须调用它。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "atype": {"type": "string", "enum": ["character", "wardrobe", "prop", "environment", "styleframe"],
+                          "description": "资产类型"},
+                "name": {"type": "string", "description": "资产名称"},
+                "prompt": {"type": "string", "description": "该资产的描述(可选)"},
+            },
+            "required": ["atype", "name"],
+        },
+    },
 ]
 
 
@@ -110,6 +125,7 @@ class Context:
         self.store = store
         self.graph: dict | None = None
         self.validated: bool = False  # 当前图是否已 validate 通过(run 的前置门槛)
+        self.last_assets: list[str] = []  # 最近一次 run 的产物路径(供 save_asset 登记)
 
 
 def dispatch(name: str, args: dict, ctx: Context) -> str:
@@ -164,7 +180,32 @@ def dispatch(name: str, args: dict, ctx: Context) -> str:
         # 执行前置门槛:必须先 validate 通过(决策 dev-kickoff §3:validate → run)
         if not ctx.validated:
             return "Error: 当前图尚未 validate 通过,请先调用 validate;若有错误改正后再 run。"
-        return json.dumps(run_ir(ctx.graph, ctx.comfy, ctx.store), ensure_ascii=False)
+        res = run_ir(ctx.graph, ctx.comfy, ctx.store)
+        ctx.last_assets = res.get("assets", []) or []
+        return json.dumps(res, ensure_ascii=False)
+
+    if name == "save_asset":
+        # 把最近 run 的产物 + 当前流程登记为可复用资产(create_character/create_asset op,入历史)。
+        if not ctx.last_assets:
+            return "Error: 还没有产物,请先 run 出图,再 save_asset。"
+        import time
+
+        from .ops import record_change
+        from .store import _nid
+        atype = args.get("atype", "prop")
+        aname = args.get("name") or "未命名资产"
+        is_char = atype == "character"
+        op = {"op": "create_character" if is_char else "create_asset",
+              "id": _nid("char" if is_char else atype[:4]), "name": aname,
+              "prompt": args.get("prompt", ""), "finals": ctx.last_assets, "graph": ctx.graph}
+        if not is_char:
+            op["type"] = atype
+        doc = ctx.store.load()
+        ch = record_change(doc, [op], author="agent", rationale=f"生成资产 {aname}")
+        ch["ts"] = time.time(); doc["history"][-1]["ts"] = ch["ts"]
+        ctx.store._write(doc)
+        return json.dumps({"ok": True, "asset_id": op["id"], "type": atype, "finals": ctx.last_assets},
+                          ensure_ascii=False)
 
     return f"Error: unknown tool {name}"
 
