@@ -4,407 +4,381 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>ReelForge</title>
-<script src="https://cdn.tailwindcss.com"></script>
 <style>
   :root{
-    --bg:#f1f1f4; --card:#ffffff; --panel:#f5f5f8; --border:#ebebef; --line:#f0f0f3;
-    --ink:#1a1a1a; --ink2:#3a3a3c; --muted:#9a9aa0; --muted2:#6a6a70; --accent:#0a84ff;
+    --bg:#f7f7fa; --card:#ffffff; --card2:#fcfcfe; --fill:#f4f4f7; --fill2:#f0f0f4;
+    --border:#e3e3e9; --line:#eeeef1; --b-input:#cfcfd6; --b-thumb:#d3d3db;
+    --ink:#1a1a1a; --ink2:#3a3a3c; --t3:#6a6a70; --t4:#9a9aa0; --t5:#a0a0a6;
+    --blue:#0a84ff; --blue-d:#0a5ad0; --blue-fill:#dcecff; --blue-tint:#f5faff;
+    --media:#1c1c22; --media2:#3a3a46;
+    --purple:#7a4ad0; --purple-b:#c9a6ff; --purple-fill:#efe4ff; --purple-tint:#faf7ff;
+    --green:#28a35a; --green-fill:#e3f5e8; --amber:#9a6a10; --amber-fill:#fff7e6; --amber-b:#f0c660;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,'Helvetica Neue',Arial,'PingFang SC',sans-serif;-webkit-font-smoothing:antialiased;font-size:13px}
-  .muted{color:var(--muted)} .muted2{color:var(--muted2)}
-  /* 浮起的圆角模块 */
-  .pane{background:var(--card);border-radius:16px;box-shadow:0 1px 2px rgba(20,20,40,.04),0 6px 20px rgba(20,20,40,.05);display:flex;flex-direction:column;overflow:hidden}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:14px}
-  .sec{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px}
-  .panel{background:var(--panel);border-radius:10px}
-  .btn{display:inline-flex;align-items:center;gap:6px;font-size:13px;padding:7px 13px;border-radius:9px;border:1px solid var(--border);background:#fff;cursor:pointer;color:var(--ink2);transition:.12s}
-  .btn:hover{background:var(--panel)}
-  .btn-accent{background:var(--accent);color:#fff;border-color:var(--accent)}
-  .btn-accent:hover{filter:brightness(1.06);background:var(--accent)}
-  .btn:disabled{opacity:.45;cursor:default}
-  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 9px;border-radius:999px}
-  .inp{width:100%;font-size:13px;padding:8px 11px;border:1px solid #e0e0e6;border-radius:9px;background:#fff;color:var(--ink);outline:none;transition:.12s}
-  .inp:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(10,132,255,.12)}
+  body{margin:0;background:var(--bg);color:var(--ink);font-size:13px;
+    font-family:-apple-system,'Helvetica Neue',Arial,'PingFang SC',sans-serif;-webkit-font-smoothing:antialiased}
+  .pane{background:var(--card);border:1px solid var(--border);border-radius:14px;display:flex;flex-direction:column;overflow:hidden}
+  .sec{background:var(--card);border:1px solid var(--border);border-radius:12px;padding:16px}
   .row{display:flex;align-items:center;gap:8px}
-  .treerow{display:flex;align-items:center;gap:6px;font-size:13px;padding:6px 9px;border-radius:9px;cursor:pointer;color:var(--ink2);user-select:none;transition:.1s}
-  .treerow:hover{background:var(--panel)}
-  .treerow.sel{background:#e3efff;color:#0a5ad0;font-weight:600}
-  .seclabel{font-size:11px;font-weight:700;letter-spacing:.3px;color:var(--muted2)}
+  .muted{color:var(--t4)} .muted2{color:var(--t3)}
+  .seclabel{font-size:12px;font-weight:600;color:var(--t4)}
+  .btn{display:inline-flex;align-items:center;gap:6px;font-size:12.5px;padding:7px 12px;border-radius:9px;border:1px solid var(--b-input);background:#fff;cursor:pointer;color:var(--ink2);transition:.1s;line-height:1;white-space:nowrap}
+  .btn:hover{background:var(--fill)}
+  .btn-pri{background:var(--blue);color:#fff;border-color:var(--blue)} .btn-pri:hover{background:var(--blue);filter:brightness(1.06)}
+  .btn-ghost{background:var(--fill2);border-color:transparent;color:var(--ink2)}
+  .btn:disabled{opacity:.45;cursor:default}
+  .btn svg{width:15px;height:15px}
+  .chip{display:inline-flex;align-items:center;gap:5px;font-size:11px;padding:3px 9px;border-radius:7px;line-height:1.4}
+  .chip svg{width:12px;height:12px}
+  .inp{width:100%;font-size:13px;padding:8px 11px;border:1px solid var(--b-input);border-radius:8px;background:#fff;color:var(--ink);outline:none;transition:.1s}
+  .inp:focus{border-color:var(--blue);box-shadow:0 0 0 3px rgba(10,132,255,.13)}
+  textarea.inp{resize:vertical;min-height:40px;font-family:inherit;line-height:1.5}
+  .treerow{display:flex;align-items:center;gap:7px;font-size:13px;padding:6px 9px;border-radius:8px;cursor:pointer;color:var(--ink2);user-select:none}
+  .treerow:hover{background:var(--fill)}
+  .treerow.sel{background:var(--blue-fill);color:var(--blue-d);font-weight:600}
+  .treerow svg{width:15px;height:15px;flex:none}
   .scroll{overflow:auto}
   .scroll::-webkit-scrollbar{width:8px;height:8px}.scroll::-webkit-scrollbar-thumb{background:#d8d8e0;border-radius:4px}.scroll::-webkit-scrollbar-track{background:transparent}
-  .spin{width:14px;height:14px;border:2px solid #cfcfd6;border-top-color:var(--accent);border-radius:50%;animation:sp 0.7s linear infinite;display:inline-block;vertical-align:middle}
+  .spin{width:13px;height:13px;border:2px solid #d3d3db;border-top-color:var(--blue);border-radius:50%;animation:sp .7s linear infinite;display:inline-block;vertical-align:middle}
   @keyframes sp{to{transform:rotate(360deg)}}
-  .modal-bg{position:fixed;inset:0;background:rgba(20,20,40,.28);backdrop-filter:blur(2px);display:flex;align-items:center;justify-content:center;z-index:50}
-  textarea.inp{resize:vertical;min-height:40px;font-family:inherit}
-  .bubble{font-size:13px;padding:9px 12px;border-radius:13px;max-width:88%;white-space:pre-wrap;word-break:break-word;line-height:1.5}
+  .modal-bg{position:fixed;inset:0;background:rgba(20,20,40,.28);display:flex;align-items:center;justify-content:center;z-index:50}
+  .bubble{font-size:13px;padding:9px 12px;border-radius:13px;max-width:86%;white-space:pre-wrap;word-break:break-word;line-height:1.5}
+  .media{background:var(--media);display:flex;align-items:center;justify-content:center;color:#8a8a90;overflow:hidden}
+  .dot{width:9px;height:9px;border-radius:50%;flex:none}
+  select.inp{appearance:none;-webkit-appearance:none;background-image:none}
+  .ico{display:inline-flex;align-items:center;justify-content:center}
 </style>
 </head>
 <body>
 <div style="display:flex;gap:12px;padding:12px;height:100vh">
-  <!-- LEFT -->
-  <aside id="left" class="pane" style="width:236px">
-    <div class="row" style="padding:16px 16px 10px">
-      <span style="font-size:17px">🎬</span>
-      <span style="font-weight:700;font-size:15px;letter-spacing:.2px">ReelForge</span>
+  <aside id="left" class="pane" style="width:230px">
+    <div class="row" style="padding:15px 16px 12px">
+      <span class="ico" id="brandIco" style="color:var(--blue)"></span>
+      <span style="font-weight:700;font-size:14.5px;letter-spacing:.2px">ReelForge</span>
     </div>
     <div class="scroll" id="tree" style="flex:1;padding:2px 10px"></div>
-    <div style="padding:10px 12px">
-      <button class="btn btn-accent" style="width:100%;justify-content:center" onclick="openNewAsset()">＋ 新建资产</button>
-    </div>
+    <div style="padding:10px 12px"><button class="btn btn-pri" style="width:100%;justify-content:center" onclick="openNewAsset()"><span id="naIco"></span>新建资产</button></div>
     <div style="border-top:1px solid var(--line);padding:8px 12px">
-      <div class="treerow" onclick="openSettings()">⚙️ 设置 · 服务连接</div>
-      <div class="row muted" style="font-size:11px;padding:4px 8px"><span id="dot">●</span><span id="connText">未连接</span></div>
+      <div class="treerow" id="settingsRow" onclick="openSettings()">设置 · 服务连接</div>
+      <div class="row muted" style="font-size:11px;padding:5px 9px"><span class="dot" id="dot" style="background:var(--t4)"></span><span id="connText">未连接</span></div>
     </div>
   </aside>
 
-  <!-- MIDDLE -->
   <main class="pane" style="flex:1;min-width:440px">
     <div class="row" style="padding:13px 18px;border-bottom:1px solid var(--line)">
       <span id="crumb" style="font-weight:600;font-size:14px"></span>
-      <span style="flex:1"></span>
-      <span id="globalBusy"></span>
+      <span style="flex:1"></span><span id="globalBusy"></span>
     </div>
-    <div class="scroll" id="middle" style="flex:1;padding:18px;background:#fbfbfd"></div>
+    <div class="scroll" id="middle" style="flex:1;padding:18px"></div>
   </main>
 
-  <!-- RIGHT -->
-  <aside class="pane" style="width:344px">
-    <div class="row" style="padding:12px 14px;border-bottom:1px solid var(--line)">
-      <button class="btn tab" data-tab="chat" style="padding:4px 12px" onclick="setTab('chat')">对话</button>
-      <button class="btn tab" data-tab="history" style="padding:4px 12px" onclick="setTab('history')">历史</button>
-      <span style="flex:1"></span><span class="muted" style="font-size:11px">✨ Agent</span>
+  <aside class="pane" style="width:340px">
+    <div class="row" style="padding:11px 14px;border-bottom:1px solid var(--line)">
+      <button class="btn tab" data-tab="chat" style="padding:5px 12px" onclick="setTab('chat')">对话</button>
+      <button class="btn tab" data-tab="history" style="padding:5px 12px" onclick="setTab('history')">历史</button>
+      <span style="flex:1"></span><span class="muted row" style="font-size:11px;gap:4px"><span id="agentIco"></span>Agent</span>
     </div>
     <div class="scroll" id="rightBody" style="flex:1;padding:14px"></div>
     <div id="chatInputWrap" style="padding:12px;border-top:1px solid var(--line)">
       <textarea id="chatInput" class="inp" placeholder="给 Agent 发消息… 例:帮我生成一个角色" rows="3"></textarea>
-      <div class="row" style="margin-top:8px;justify-content:flex-end">
-        <button class="btn btn-accent" onclick="sendChat()">发送 ↑</button>
-      </div>
+      <div class="row" style="margin-top:8px;justify-content:flex-end"><button class="btn btn-pri" onclick="sendChat()"><span id="sendIco"></span>发送</button></div>
     </div>
     <div class="row muted" style="font-size:11px;padding:8px 14px;border-top:1px solid var(--line)">
       <span id="footModel">—</span><span style="flex:1"></span><span id="footProject"></span>
     </div>
   </aside>
 </div>
-
 <div id="modal"></div>
 
 <script>
 const S={base:'',project:null,projects:[],detail:null,sel:{kind:'overview'},expanded:{p:true,char:true,asset:true,shot:true},
   chat:[],busy:false,model:'',backends:[],tab:'chat',graph:null,selNode:null};
-const TYPES={character:{cn:'角色',icon:'👤',color:'#7a4ad0',bg:'#efe4ff'},wardrobe:{cn:'服装',icon:'👕',color:'#2f8a4d',bg:'#e6f4ea'},
-  prop:{cn:'道具',icon:'📦',color:'#b8860b',bg:'#f6efdc'},environment:{cn:'场景',icon:'🏞',color:'#2f6a8a',bg:'#e3eef5'},styleframe:{cn:'风格',icon:'🎨',color:'#b0418a',bg:'#f7e6f0'}};
+const TYPES={character:{cn:'角色',ico:'user',color:'#7a4ad0',fill:'#efe4ff'},wardrobe:{cn:'服装',ico:'shirt',color:'#2f8a4d',fill:'#e3f5e8'},
+  prop:{cn:'道具',ico:'box',color:'#b8860b',fill:'#f6efdc'},environment:{cn:'场景',ico:'image',color:'#2f6a8a',fill:'#e3eef7'},styleframe:{cn:'风格',ico:'palette',color:'#b0418a',fill:'#f7e6f0'}};
+
+// ---- 图标(SVG line icons,无 emoji) ----
+const P={
+ film:'<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18M8 6l-2 4M13 6l-2 4M18 6l-2 4"/>',
+ grid:'<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/>',
+ user:'<circle cx="12" cy="8" r="3.4"/><path d="M5.5 20c0-3.6 3-5.5 6.5-5.5s6.5 1.9 6.5 5.5"/>',
+ box:'<path d="M12 3l8 4v10l-8 4-8-4V7z"/><path d="M4 7l8 4 8-4M12 11v10"/>',
+ image:'<rect x="3" y="4" width="18" height="16" rx="2"/><circle cx="8.5" cy="9" r="1.6"/><path d="M5 18l5-5 4 3 3-3 3 3"/>',
+ palette:'<circle cx="12" cy="12" r="8.5"/><circle cx="8" cy="10" r="1.1"/><circle cx="12" cy="8" r="1.1"/><circle cx="16" cy="10" r="1.1"/>',
+ shirt:'<path d="M8 3l4 2 4-2 4 3-3 3v10H7V9L4 6z"/>',
+ layers:'<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+ export:'<path d="M12 15V4M8 8l4-4 4 4"/><path d="M5 14v4a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-4"/>',
+ gear:'<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M22 12h-3M5 12H2M19 19l-2-2M7 7L5 5M19 5l-2 2M7 17l-2 2"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ play:'<path d="M8 5l11 7-11 7z" fill="currentColor" stroke="none"/>',
+ send:'<path d="M12 20V5M6 11l6-6 6 6"/>',
+ spark:'<path d="M12 3l1.7 5.3L19 10l-5.3 1.7L12 17l-1.7-5.3L5 10l5.3-1.7z"/>',
+ refresh:'<path d="M20 11a8 8 0 1 0-.5 4M20 4v5h-5"/>',
+ code:'<path d="M8.5 8.5L5 12l3.5 3.5M15.5 8.5L19 12l-3.5 3.5"/>',
+ lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+ quote:'<path d="M5 7h6v6H7l-2 4zM13 7h6v6h-4l-2 4z"/>'};
+function icon(name,size,color){const c=color||'currentColor';return `<svg class="ico" width="${size||16}" height="${size||16}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${P[name]||''}</svg>`}
+// 深底人像剪影占位
+function silhouette(){return `<svg width="40%" height="40%" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="#3a3a46"/><path d="M3 22c0-5 4-8 9-8s9 3 9 8z" fill="#3a3a46"/></svg>`}
 
 const sleep=ms=>new Promise(r=>setTimeout(r,ms));
-const el=(h)=>{const t=document.createElement('template');t.innerHTML=h.trim();return t.content.firstChild};
-const esc=(s)=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const el=h=>{const t=document.createElement('template');t.innerHTML=h.trim();return t.content.firstChild};
+const esc=s=>(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 function media(p){return p?`/media?path=${encodeURIComponent(p)}`:''}
 async function jget(p){const r=await fetch(p);return r.json()}
 async function jpost(p,b){const r=await fetch(p,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(b||{})});return r.json()}
-
 function setBusy(b,msg){S.busy=b;document.getElementById('globalBusy').innerHTML=b?`<span class="spin"></span> <span class="muted" style="font-size:12px">${esc(msg||'处理中…')}</span>`:''}
 
-async function connect(){
-  try{
-    const h=await jget('/healthz'); S.model=h.model||''; document.getElementById('dot').style.color='#28a35a';
-    document.getElementById('connText').textContent='已连接'; document.getElementById('footModel').textContent=S.model||'—';
-    S.backends=(await jget('/backends')).backends||[];
-    await loadProjects();
-    if(!S.project&&S.projects[0]) S.project=S.projects[0];
-    if(S.project) await loadDetail();
-    render();
-  }catch(e){document.getElementById('connText').textContent='连接失败';}
-}
-async function loadProjects(){S.projects=(await jget('/projects')).projects||[]}
-async function loadDetail(){if(!S.project)return; S.detail=await jget('/projects/'+S.project); document.getElementById('footProject').textContent=S.project; renderTree(); renderMiddle();}
-async function selectProject(n){S.project=n;S.sel={kind:'overview'};S.graph=null;await loadDetail();render();}
+// brand/static icons
+document.getElementById('brandIco').innerHTML=icon('film',18);
+document.getElementById('naIco').innerHTML=icon('plus',15);
+document.getElementById('agentIco').innerHTML=icon('spark',13);
+document.getElementById('sendIco').innerHTML=icon('send',14);
+document.getElementById('settingsRow').insertAdjacentHTML('afterbegin',icon('gear',15));
 
-// ---------- LEFT TREE ----------
+async function connect(){
+  try{const h=await jget('/healthz');S.model=h.model||'';document.getElementById('dot').style.background='#28c840';
+    document.getElementById('connText').textContent='已连接';document.getElementById('footModel').textContent=S.model||'—';
+    S.backends=(await jget('/backends')).backends||[];await loadProjects();
+    if(!S.project&&S.projects[0])S.project=S.projects[0];if(S.project)await loadDetail();render();
+  }catch(e){document.getElementById('connText').textContent='连接失败';}}
+async function loadProjects(){S.projects=(await jget('/projects')).projects||[]}
+async function loadDetail(){if(!S.project)return;S.detail=await jget('/projects/'+S.project);document.getElementById('footProject').textContent=S.project;renderTree();renderMiddle();}
+async function selectProject(n){S.project=n;S.sel={kind:'overview'};S.graph=null;await loadDetail();render();}
 function chars(){return (S.detail&&S.detail.characters)||[]}
 function assets(){return (S.detail&&S.detail.assets)||[]}
 function shots(){return (S.detail&&S.detail.shots)||[]}
-function selIs(k,id){return S.sel.kind===k && (id===undefined||S.sel.id===id) && !S.graph}
+function findEnt(id){return chars().find(c=>c.id===id)||assets().find(a=>a.id===id)}
+function selIs(k,id){return S.sel.kind===k&&(id===undefined||S.sel.id===id)&&!S.graph}
 function setSel(kind,id){S.sel={kind,id};S.graph=null;S.selNode=null;render()}
 
+// ---------- TREE ----------
 function renderTree(){
-  const t=document.getElementById('tree'); t.innerHTML='';
-  S.projects.forEach(p=>{
-    const cur=p===S.project;
-    t.appendChild(el(`<div class="treerow ${cur&&selIs('overview')?'sel':''}" onclick="${cur?`toggle('p')`:`selectProject('${p}')`}">
-      <span style="width:12px;color:var(--muted)">${cur?(S.expanded.p?'▾':'▸'):''}</span>🎞 <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p)}</span></div>`));
+  const t=document.getElementById('tree');t.innerHTML='';
+  S.projects.forEach(p=>{const cur=p===S.project;
+    const r=el(`<div class="treerow ${cur&&selIs('overview')?'sel':''}"><span style="width:10px;color:var(--t4);font-size:10px">${cur?(S.expanded.p?'▾':'▸'):''}</span>${icon('film',15)}<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p)}</span></div>`);
+    r.onclick=()=>cur?(S.expanded.p=!S.expanded.p,renderTree()):selectProject(p);t.appendChild(r);
     if(cur&&S.expanded.p){
-      t.appendChild(leaf('  ▦ 概览','overview'));
-      t.appendChild(group('👥 角色','char',chars().length,'characters'));
-      if(S.expanded.char) chars().forEach(c=>t.appendChild(leaf('   '+TYPES.character.icon+' '+c.name,'character',c.id)));
-      t.appendChild(group('📦 资产','asset',assets().length,'assets'));
-      if(S.expanded.asset) assets().forEach(a=>t.appendChild(leaf('   '+(TYPES[a.type]?.icon||'📦')+' '+a.name,'asset',a.id)));
-      t.appendChild(group('🗂 分镜','shot',shots().length,'shotsRoot'));
-      if(S.expanded.shot) shots().forEach((s,i)=>t.appendChild(leaf('   ▢ 镜 '+(i+1),'shot',s.id)));
-      t.appendChild(leaf('  🎬 成片 / 导出','timeline'));
-    }
-  });
-  if(!S.projects.length) t.appendChild(el(`<div class="muted" style="font-size:12px;padding:8px">暂无项目</div>`));
+      t.appendChild(leaf(icon('grid',14),'概览','overview',1));
+      t.appendChild(group(icon('user',14),'角色','char',chars().length,'characters'));
+      if(S.expanded.char)chars().forEach(c=>t.appendChild(leaf(dotIco('character'),c.name,'character',2,c.id)));
+      t.appendChild(group(icon('box',14),'资产','asset',assets().length,'assets'));
+      if(S.expanded.asset)assets().forEach(a=>t.appendChild(leaf(dotIco(a.type),a.name,'asset',2,a.id)));
+      t.appendChild(group(icon('layers',14),'分镜','shot',shots().length,'shotsRoot'));
+      if(S.expanded.shot)shots().forEach((s,i)=>t.appendChild(leaf(icon('image',14),'镜 '+(i+1),'shot',2,s.id)));
+      t.appendChild(leaf(icon('export',14),'成片 / 导出','timeline',1));
+    }});
+  if(!S.projects.length)t.appendChild(el(`<div class="muted" style="font-size:12px;padding:8px">暂无项目</div>`));
 }
-function leaf(label,kind,id){const r=el(`<div class="treerow ${selIs(kind,id)?'sel':''}">${esc(label)}</div>`);r.onclick=()=>setSel(kind,id);return r}
-function group(label,key,n,selKind){const open=S.expanded[key];const r=el(`<div class="treerow ${selIs(selKind)?'sel':''}"><span style="width:12px;color:var(--muted)">${open?'▾':'▸'}</span><span style="flex:1">${esc(label)}</span><span class="muted" style="font-size:11px">${n}</span></div>`);
+function dotIco(type){const t=TYPES[type]||TYPES.prop;return `<span class="dot" style="width:8px;height:8px;background:${t.color};margin:0 3px"></span>`}
+function leaf(ic,label,kind,lv,id){const r=el(`<div class="treerow ${selIs(kind,id)?'sel':''}" style="padding-left:${lv*12+4}px"><span style="width:10px"></span>${ic}<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(label)}</span></div>`);r.onclick=()=>setSel(kind,id);return r}
+function group(ic,label,key,n,selKind){const open=S.expanded[key];
+  const r=el(`<div class="treerow ${selIs(selKind)?'sel':''}" style="padding-left:16px"><span style="width:10px;color:var(--t4);font-size:10px">${open?'▾':'▸'}</span>${ic}<span style="flex:1">${esc(label)}</span><span class="muted" style="font-size:11px">${n}</span></div>`);
   r.onclick=()=>{S.sel={kind:selKind};S.graph=null;S.expanded[key]=!S.expanded[key];render()};return r}
-function toggle(k){S.expanded[k]=!S.expanded[k];renderTree()}
 
 // ---------- MIDDLE ----------
 function crumb(){
-  if(S.graph){const r=S.graph.ref; const nm=r.kind==='shot'?('镜 '+(shots().findIndex(s=>s.id===r.id)+1)):(findEnt(r.id)?.name||r.id); return `${esc(nm)} · 生成流程(技术层)`;}
-  const k=S.sel;
-  if(k.kind==='character') return '角色 · '+esc(findEnt(k.id)?.name||k.id);
-  if(k.kind==='asset') return '资产 · '+esc(findEnt(k.id)?.name||k.id);
-  if(k.kind==='shot') return '镜 '+(shots().findIndex(s=>s.id===k.id)+1);
+  if(S.graph){const r=S.graph.ref;const nm=r.kind==='shot'?('镜 '+(shots().findIndex(s=>s.id===r.id)+1)):(findEnt(r.id)?.name||r.id);return `${esc(nm)} · 生成流程`;}
+  const k=S.sel;if(k.kind==='character')return '角色 · '+esc(findEnt(k.id)?.name||k.id);
+  if(k.kind==='asset')return '资产 · '+esc(findEnt(k.id)?.name||k.id);
+  if(k.kind==='shot')return '镜 '+(shots().findIndex(s=>s.id===k.id)+1);
   return esc(S.project||'')+' · '+({overview:'概览',characters:'角色',assets:'资产',shotsRoot:'分镜',timeline:'成片'}[k.kind]||'');
 }
-function findEnt(id){return chars().find(c=>c.id===id)||assets().find(a=>a.id===id)}
-
 function renderMiddle(){
-  document.getElementById('crumb').innerHTML = (S.graph?`<span class="btn" style="padding:2px 8px" onclick="closeGraph()">‹ 返回</span> `:'')+crumb();
+  document.getElementById('crumb').innerHTML=(S.graph?`<span class="btn" style="padding:3px 9px;margin-right:8px" onclick="closeGraph()">‹ 返回</span>`:'')+crumb();
   const m=document.getElementById('middle');
-  if(S.graph){ m.innerHTML=''; m.appendChild(renderCanvas()); return; }
+  if(S.graph){m.innerHTML='';m.appendChild(renderCanvas());return;}
   const k=S.sel.kind;
-  if(k==='overview'||k==='shotsRoot') m.innerHTML=board();
-  else if(k==='characters') m.innerHTML=gallery('character');
-  else if(k==='assets') m.innerHTML=gallery('asset');
-  else if(k==='character'||k==='asset') m.innerHTML=detail(findEnt(S.sel.id));
-  else if(k==='shot') m.innerHTML=shotDetail(shots().find(s=>s.id===S.sel.id));
-  else if(k==='timeline') m.innerHTML=timeline();
-  bindMiddle();
+  if(k==='overview'||k==='shotsRoot')m.innerHTML=board();
+  else if(k==='characters')m.innerHTML=gallery('character');
+  else if(k==='assets')m.innerHTML=gallery('asset');
+  else if(k==='character'||k==='asset')m.innerHTML=detail(findEnt(S.sel.id));
+  else if(k==='shot')m.innerHTML=shotDetail(shots().find(s=>s.id===S.sel.id));
+  else if(k==='timeline')m.innerHTML=timeline();
 }
+function thumbBox(img,h,extra){return `<div class="media" style="height:${h};border-radius:10px;${extra||''}">${img?`<img src="${media(img)}" style="width:100%;height:100%;object-fit:cover"/>`:silhouette()}</div>`}
+function typeChip(type){const t=TYPES[type]||TYPES.prop;return `<span class="chip" style="color:${t.color};background:${t.fill}">${icon(t.ico,12,t.color)}${t.cn}</span>`}
 
 function bibleStrip(){
   const items=[...chars().map(c=>({...c,_t:'character'})),...assets().map(a=>({...a,_t:a.type}))];
-  const cells=items.map(x=>{const t=TYPES[x._t]||TYPES.prop;const img=(x.finals&&x.finals[0]);
-    return `<div class="card" style="width:96px;padding:6px;cursor:pointer;text-align:center" onclick="setSel('${x._t==='character'?'character':'asset'}','${x.id}')">
-      <div style="height:64px;border-radius:6px;background:${img?`#000 center/cover url(${media(img)})`:t.bg};display:flex;align-items:center;justify-content:center;font-size:22px">${img?'':t.icon}</div>
-      <div style="font-size:11px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}</div>
-      <div class="chip" style="color:${t.color};background:${t.bg};font-size:9px">${t.cn}</div></div>`}).join('');
-  return `<div class="card" style="padding:12px;margin-bottom:14px">
-     <div class="row" style="margin-bottom:8px"><span class="seclabel">Character Bible / 资产</span><span style="flex:1"></span>
-       <button class="btn" style="padding:3px 9px" onclick="openNewAsset()">＋ 新建</button></div>
-     <div class="row scroll" style="gap:10px;padding-bottom:4px">${cells||'<span class="muted" style="font-size:12px">暂无资产,点「新建」或让 Agent 生成</span>'}</div></div>`;
+  const cells=items.map(x=>{const t=TYPES[x._t]||TYPES.prop;
+    return `<div style="width:92px;cursor:pointer" onclick="setSel('${x._t==='character'?'character':'asset'}','${x.id}')">
+      ${thumbBox(x.finals&&x.finals[0],'66px')}
+      <div style="font-size:11.5px;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}</div>
+      <div class="row" style="gap:4px;margin-top:2px"><span class="dot" style="width:6px;height:6px;background:${t.color}"></span><span class="muted" style="font-size:10px">${t.cn}</span></div></div>`}).join('');
+  return `<div class="sec" style="margin-bottom:16px">
+    <div class="row" style="margin-bottom:12px"><span class="seclabel">Character Bible / 资产</span><span style="flex:1"></span><button class="btn" style="padding:5px 10px" onclick="openNewAsset()">${icon('plus',14)}新建</button></div>
+    <div class="row scroll" style="gap:12px;padding-bottom:2px">${cells||'<span class="muted" style="font-size:12px">暂无资产 — 点「新建」或让 Agent 生成</span>'}</div></div>`;
+}
+function stagePill(state,label){ // 0未 1进行 2完成
+  if(state===2)return `<span class="chip" style="background:var(--green-fill);color:var(--green)">✓ ${label}</span>`;
+  if(state===1)return `<span class="chip" style="background:var(--blue);color:#fff">● ${label}</span>`;
+  return `<span class="chip" style="background:#fff;border:1px solid var(--border);color:var(--t5)">○ ${label}</span>`;
 }
 function board(){
-  const rows=shots().map((s,i)=>{
-    const st=(cond,label)=>`<span class="chip" style="color:${cond?'#28a35a':'#9a9aa0'};background:${cond?'#e6f4ea':'#f0f0f3'}">${cond?'✓':'○'} ${label}</span>`;
-    const done1=!!(s.scene_prompt||s.script), done2=!!(s.takes&&s.takes.length), done3=!!s.selected_take;
-    const kf=s.keyframe;
-    return `<div class="card" style="padding:12px;margin-bottom:10px;display:flex;gap:12px;cursor:pointer" onclick="setSel('shot','${s.id}')">
-      <div style="width:150px;height:86px;border-radius:8px;background:${kf?`#000 center/cover url(${media(kf)})`:'#eef'};flex:none"></div>
-      <div style="flex:1;min-width:0"><div class="row"><span class="chip" style="color:var(--accent);background:#e7f0ff;font-weight:700">镜 ${i+1}</span>
-        <b style="font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.script||s.id)}</b></div>
-        <div class="row" style="gap:6px;margin-top:6px">${st(done1,'分镜')}${st(done2,'生成')}${st(done3,'选片')}</div></div></div>`}).join('');
-  return bibleStrip()+`<div class="row" style="margin-bottom:8px"><span class="seclabel">分镜 · 制片(${shots().length})</span></div>`+
-    (rows||`<div class="card" style="padding:30px;text-align:center" class="muted"><div style="font-size:34px">🗂</div><div class="muted">还没有分镜</div></div>`);
+  const rows=shots().map((s,i)=>{const d1=(s.scene_prompt||s.script)?2:0,d2=(s.takes&&s.takes.length)?2:(s.keyframe?1:0),d3=s.selected_take?2:0;
+    return `<div class="row" style="gap:14px;background:var(--card2);border:1px solid var(--border);border-radius:12px;padding:12px;margin-bottom:10px;cursor:pointer" onclick="setSel('shot','${s.id}')">
+      <div style="width:150px;flex:none">${thumbBox(s.keyframe,'84px')}</div>
+      <div style="flex:1;min-width:0"><div class="row"><span class="chip" style="background:var(--blue-fill);color:var(--blue-d);font-weight:600">镜 ${i+1}</span>
+        <span style="font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.script||s.id)}</span></div>
+        <div class="row" style="gap:6px;margin-top:10px">${stagePill(d1,'分镜')}${stagePill(d2,'生成')}${stagePill(d3,'选片')}</div></div></div>`}).join('');
+  return bibleStrip()+`<div class="row" style="margin:0 2px 10px"><span class="seclabel">分镜 · 制片</span><span class="muted" style="font-size:11px">(${shots().length})</span></div>`+
+    (rows||`<div class="sec" style="text-align:center;padding:36px;color:var(--t4)"><div style="margin-bottom:8px">${icon('layers',30,'#cfcfd6')}</div>还没有分镜</div>`);
 }
 function gallery(g){
   const list=g==='character'?chars().map(c=>({...c,_t:'character'})):assets().map(a=>({...a,_t:a.type}));
-  const cells=list.map(x=>{const t=TYPES[x._t]||TYPES.prop;const img=x.finals&&x.finals[0];
-    return `<div class="card" style="padding:8px;cursor:pointer" onclick="setSel('${g==='character'?'character':'asset'}','${x.id}')">
-      <div style="height:120px;border-radius:8px;background:${img?`#000 center/cover url(${media(img)})`:t.bg};display:flex;align-items:center;justify-content:center;font-size:30px">${img?'':t.icon}</div>
-      <div style="font-size:13px;font-weight:600;margin-top:6px">${esc(x.name)}</div><div class="chip" style="color:${t.color};background:${t.bg}">${t.cn}</div></div>`}).join('');
-  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:12px">${cells||'<span class="muted">空</span>'}</div>`;
+  const cells=list.map(x=>`<div class="sec" style="padding:10px;cursor:pointer" onclick="setSel('${g==='character'?'character':'asset'}','${x.id}')">
+    ${thumbBox(x.finals&&x.finals[0],'128px')}<div style="font-size:13px;font-weight:600;margin-top:8px">${esc(x.name)}</div>
+    <div style="margin-top:4px">${typeChip(x._t)}</div></div>`).join('');
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px">${cells||'<span class="muted">空</span>'}</div>`;
 }
-function finalsView(finals,labels){
-  finals=finals||[];
-  if(finals.length<=1){const p=finals[0];
-    return `<div style="width:100%;height:440px;border-radius:12px;background:${p?`#16161c center/contain no-repeat url(${media(p)})`:'#f0f0f3'};display:flex;align-items:center;justify-content:center;color:var(--muted)">${p?'':'<span class="spin"></span>&nbsp;生成中…'}</div>`}
+function finalsView(finals,labels){finals=finals||[];
+  if(finals.length<=1){const p=finals[0];return `<div class="media" style="height:440px;border-radius:12px">${p?`<img src="${media(p)}" style="max-width:100%;max-height:100%;object-fit:contain"/>`:'<span class="row" style="gap:6px"><span class="spin"></span>生成中…</span>'}</div>`}
   const caps=labels||['正面','侧面','背面','3/4 侧'];
-  return `<div class="row" style="gap:10px;align-items:stretch">${finals.slice(0,4).map((p,i)=>`<div style="flex:1">
-     <div style="height:300px;border-radius:12px;background:#16161c center/contain no-repeat url(${media(p)})"></div>
-     <div class="muted" style="font-size:11px;text-align:center;margin-top:6px">${caps[i]||''}</div></div>`).join('')}</div>`;
+  return `<div class="row" style="gap:12px;align-items:stretch">${finals.slice(0,4).map((p,i)=>`<div style="flex:1">
+    <div class="media" style="height:300px;border-radius:12px"><img src="${media(p)}" style="max-width:100%;max-height:100%;object-fit:contain"/></div>
+    <div class="muted" style="font-size:11px;text-align:center;margin-top:7px">${caps[i]||''}</div></div>`).join('')}</div>`;
 }
 function detail(x){
   if(!x)return '<div class="muted">未找到</div>';
-  const isChar=chars().some(c=>c.id===x.id); const t=TYPES[isChar?'character':x.type]||TYPES.prop;
-  const w=x.width||(isChar?832:1024), h=x.height||(isChar?1216:1024);
-  const usedIn=shots().map((s,i)=>({i:i+1,s,r:(s.refs||[])})).filter(o=>o.r.includes(x.id));
-  let html=`<div class="sec" style="margin-bottom:14px">
-    <div class="row" style="margin-bottom:12px"><span style="font-weight:700;font-size:16px">${esc(x.name)}</span>
-      <span class="chip" style="color:${t.color};background:${t.bg}">${t.icon} ${t.cn}</span>
-      ${usedIn.length?`<span class="chip" style="color:#28a35a;background:#e3f5e8">在 ${usedIn.length} 个镜头使用</span>`:''}</div>
-    <div class="seclabel" style="margin-bottom:10px">${isChar?'多视角定稿(turnaround)':'参考图'}</div>
-    ${finalsView(x.finals)}</div>`;
-  html+=`<div class="sec" style="margin-bottom:14px"><div class="seclabel" style="margin-bottom:10px">生成提示词</div>
+  const isChar=chars().some(c=>c.id===x.id);const t=TYPES[isChar?'character':x.type]||TYPES.prop;
+  const w=x.width||(isChar?832:1024),h=x.height||(isChar?1216:1024);
+  const usedIn=shots().map((s,i)=>({i:i+1,s})).filter(o=>(o.s.refs||[]).includes(x.id));
+  let html=`<div class="sec" style="margin-bottom:16px">
+    <div class="row" style="margin-bottom:14px"><span style="font-weight:700;font-size:16px">${esc(x.name)}</span>${typeChip(isChar?'character':x.type)}
+      ${usedIn.length?`<span class="chip" style="background:var(--green-fill);color:var(--green)">在 ${usedIn.length} 个镜头使用</span>`:''}</div>
+    <div class="seclabel" style="margin-bottom:10px">${isChar?'多视角定稿 (turnaround)':'参考图'}</div>${finalsView(x.finals)}</div>`;
+  html+=`<div class="sec" style="margin-bottom:16px"><div class="row" style="margin-bottom:10px">${icon('quote',14,'#9a9aa0')}<span class="seclabel">生成提示词</span></div>
     <textarea id="d_prompt" class="inp" rows="3">${esc(x.prompt||'')}</textarea>
-    <div class="row" style="margin-top:10px"><span class="muted" style="font-size:12px">尺寸</span>
-      <input id="d_w" class="inp" style="width:66px" value="${w}"/> <span class="muted">×</span> <input id="d_h" class="inp" style="width:66px" value="${h}"/><span class="muted" style="font-size:11px">px</span>
-      <span style="flex:1"></span>
-      <button class="btn" onclick="openGraph('${isChar?'character':'asset'}','${x.id}')">〈/〉 生成流程</button>
-      <button class="btn btn-accent" onclick="regen('${x.id}')">↻ 重新生成</button></div></div>`;
+    <div class="row" style="margin-top:12px"><span class="muted" style="font-size:12px">尺寸</span>
+      <input id="d_w" class="inp" style="width:64px;text-align:center" value="${w}"/><span class="muted">×</span><input id="d_h" class="inp" style="width:64px;text-align:center" value="${h}"/><span class="muted" style="font-size:11px">px</span>
+      <span style="flex:1"></span><button class="btn" onclick="openGraph('${isChar?'character':'asset'}','${x.id}')">${icon('code',14)}生成流程</button>
+      <button class="btn btn-pri" onclick="regen('${x.id}')">${icon('refresh',14)}重新生成</button></div></div>`;
   if(isChar){
-    html+=`<div class="sec" style="margin-bottom:14px;background:#faf7ff;border-color:#e6d9ff">
-      <div style="color:#7a4ad0;font-weight:700;font-size:12.5px;margin-bottom:12px">🔒 身份锁定(一致性核心,Agent 会自动注入到所有镜头)</div>
-      <div class="row"><span class="muted" style="font-size:12px;width:64px">触发词</span><input id="d_trigger" class="inp" placeholder="如 linxia, cyberpunk girl" value="${esc(x.trigger||'')}"/></div>
-      <div class="row" style="margin-top:10px">
-        <span class="chip" style="background:${x.lora?'#e6f4ea':'#f0f0f3'};color:${x.lora?'#28a35a':'#9a9aa0'}">${x.lora?'专属 LoRA ✓':'未训练 LoRA'}</span>
-        <span class="chip" style="background:#f0f0f3;color:#6a6a70">来源:${x.source==='image'?'参考图':'文本'}</span>
-        <span style="flex:1"></span><button class="btn btn-accent" onclick="saveTrigger('${x.id}')">保存</button></div></div>`;
+    html+=`<div class="sec" style="margin-bottom:16px;background:var(--purple-tint);border-color:var(--purple-b)">
+      <div class="row" style="margin-bottom:12px">${icon('lock',14,'#7a4ad0')}<span style="color:var(--purple);font-weight:600;font-size:12.5px">身份锁定 · 一致性核心(Agent 自动注入所有镜头)</span></div>
+      <div class="row"><span class="muted" style="font-size:12px;width:58px">触发词</span><input id="d_trigger" class="inp" placeholder="如 linxia, cyberpunk girl" value="${esc(x.trigger||'')}"/></div>
+      <div class="row" style="margin-top:12px">
+        <span class="chip" style="background:${x.lora?'var(--green-fill)':'#f0f0f4'};color:${x.lora?'var(--green)':'#9a9aa0'}">${x.lora?'专属 LoRA ✓':'未训练 LoRA'}</span>
+        <span class="chip" style="background:#f0f0f4;color:var(--t3)">来源:${x.source==='image'?'参考图':'文本'}</span>
+        <span style="flex:1"></span><button class="btn btn-pri" onclick="saveTrigger('${x.id}')">保存</button></div></div>`;
     html+=`<div class="sec"><div class="seclabel" style="margin-bottom:10px">被引用于</div>
       ${usedIn.length?`<div class="row" style="gap:8px;flex-wrap:wrap">${usedIn.map(o=>`<span class="chip" style="background:#eef0fb;color:#3a4ab0;cursor:pointer" onclick="setSel('shot','${o.s.id}')">镜 ${o.i} · ${esc(o.s.script||'')}</span>`).join('')}</div>
-        <div class="muted" style="font-size:11px;margin-top:10px">改动身份锁定后,可一键「重生成受影响镜头」以保持全片一致。</div>`:'<span class="muted" style="font-size:12px">尚无镜头引用此角色。</span>'}</div>`;
+      <div class="muted" style="font-size:11px;margin-top:10px">改动身份锁定后,可一键「重生成受影响镜头」保持全片一致。</div>`:'<span class="muted" style="font-size:12px">尚无镜头引用此角色。</span>'}</div>`;
   }
   return html;
 }
 function shotDetail(s){
   if(!s)return '<div class="muted">未找到</div>';
   const refsName=(s.refs||[]).map(id=>findEnt(id)?.name||id);
-  const takes=(s.takes||[]).map(t=>`<div class="row" style="gap:10px;margin-top:6px"><button class="btn" onclick="playVideo('${media(t.video)}')">▶ 播放</button>
+  const takes=(s.takes||[]).map(t=>`<div class="row" style="gap:10px;margin-top:8px"><button class="btn" onclick="playVideo('${media(t.video)}')">${icon('play',13)}播放</button>
     <span class="muted" style="font-size:11px">${esc((t.meta&&t.meta.recipe)||'')} · ${esc((t.meta&&t.meta.backend)||'')}</span><span style="flex:1"></span>
-    <button class="btn ${t.id===s.selected_take?'btn-accent':''}" onclick="selectTake('${s.id}','${t.id}')">${t.id===s.selected_take?'已选用':'选用'}</button></div>`).join('')||'<span class="muted" style="font-size:12px">尚无 take</span>';
-  return `<div class="card" style="padding:14px;margin-bottom:14px">${finalsView(s.keyframe?[s.keyframe]:[])}</div>
-   <div class="card" style="padding:14px;margin-bottom:14px"><div class="seclabel">剧情</div><div style="margin-top:6px">${esc(s.script||'—')}</div>
-    ${refsName.length?`<div class="row" style="gap:6px;margin-top:8px"><span class="muted" style="font-size:11px">引用</span>${refsName.map(n=>`<span class="chip" style="background:#efe4ff;color:#7a4ad0">${esc(n)}</span>`).join('')}</div>`:''}
-    ${s.scene_prompt?`<div class="muted2" style="font-size:12px;margin-top:8px">画面: ${esc(s.scene_prompt)}</div>`:''}
-    ${s.motion_prompt?`<div class="muted2" style="font-size:12px;margin-top:4px">运动: ${esc(s.motion_prompt)}</div>`:''}</div>
-   <div class="card" style="padding:14px;margin-bottom:14px"><div class="row" style="gap:8px">
-     <button class="btn btn-accent" onclick="genShot('${s.id}','local')" ${s.keyframe?'':'disabled'}>⚡ 本地生成</button>
-     <button class="btn" onclick="genShot('${s.id}','cloud')" ${s.keyframe?'':'disabled'}>☁ 云生成</button>
-     <button class="btn" onclick="openGraph('shot','${s.id}')">〈/〉 生成流程</button></div></div>
-   <div class="card" style="padding:14px"><div class="seclabel">镜次 takes</div>${takes}</div>`;
+    <button class="btn ${t.id===s.selected_take?'btn-pri':''}" onclick="selectTake('${s.id}','${t.id}')">${t.id===s.selected_take?'已选用':'选用'}</button></div>`).join('')||'<span class="muted" style="font-size:12px">尚无 take</span>';
+  return `<div class="sec" style="margin-bottom:16px">${finalsView(s.keyframe?[s.keyframe]:[])}</div>
+   <div class="sec" style="margin-bottom:16px"><div class="seclabel">剧情</div><div style="margin-top:8px">${esc(s.script||'—')}</div>
+    ${refsName.length?`<div class="row" style="gap:6px;margin-top:10px"><span class="muted" style="font-size:11px">引用</span>${refsName.map(n=>`<span class="chip" style="background:var(--purple-fill);color:var(--purple)">${esc(n)}</span>`).join('')}</div>`:''}
+    ${s.scene_prompt?`<div class="muted2" style="font-size:12px;margin-top:10px">画面:${esc(s.scene_prompt)}</div>`:''}</div>
+   <div class="sec" style="margin-bottom:16px"><div class="row" style="gap:8px">
+     <button class="btn btn-pri" onclick="genShot('${s.id}','local')" ${s.keyframe?'':'disabled'}>本地生成</button>
+     <button class="btn" onclick="genShot('${s.id}','cloud')" ${s.keyframe?'':'disabled'}>云生成</button>
+     <button class="btn" onclick="openGraph('shot','${s.id}')">${icon('code',14)}生成流程</button></div></div>
+   <div class="sec"><div class="seclabel">镜次 takes</div>${takes}</div>`;
 }
-function timeline(){
-  const ready=shots().map((s,i)=>({i:i+1,s,t:(s.takes||[]).find(t=>t.id===s.selected_take)})).filter(o=>o.t);
-  return `<div class="card" style="padding:14px"><div class="row"><span class="seclabel">成片时间线</span><span style="flex:1"></span>
-    <button class="btn btn-accent" onclick="exportProj()">导出 FCPXML</button></div>
-    <div class="row scroll" style="gap:10px;margin-top:12px">${ready.map(o=>`<div style="text-align:center"><div style="width:180px;height:102px;border-radius:8px;background:#000 center/cover url(${media(o.s.keyframe)});cursor:pointer" onclick="playVideo('${media(o.t.video)}')"></div><div class="muted" style="font-size:11px;margin-top:4px">镜 ${o.i}</div></div>`).join('')||'<span class="muted">还没有选定镜次</span>'}</div></div>`;
+function timeline(){const ready=shots().map((s,i)=>({i:i+1,s,t:(s.takes||[]).find(t=>t.id===s.selected_take)})).filter(o=>o.t);
+  return `<div class="sec"><div class="row"><span class="seclabel">成片时间线</span><span style="flex:1"></span><button class="btn btn-pri" onclick="exportProj()">${icon('export',14)}导出 FCPXML</button></div>
+   <div class="row scroll" style="gap:12px;margin-top:14px">${ready.map(o=>`<div style="text-align:center;cursor:pointer" onclick="playVideo('${media(o.t.video)}')"><div style="width:180px">${thumbBox(o.s.keyframe,'102px')}</div><div class="muted" style="font-size:11px;margin-top:5px">镜 ${o.i}</div></div>`).join('')||'<span class="muted">还没有选定镜次</span>'}</div></div>`;
 }
-function bindMiddle(){}
 
 // ---------- NODE CANVAS ----------
-async function openGraph(kind,id){setBusy(true,'载入流程…');
-  try{const g=kind==='shot'?await jpost('/projects/'+S.project+'/shots/'+id+'/graph/build',{}):await jget('/projects/'+S.project+'/assets/'+id+'/graph');
-    S.graph=parseGraph(g.graph,{kind,id});render();}finally{setBusy(false)}}
+async function openGraph(kind,id){setBusy(true,'载入流程…');try{const g=kind==='shot'?await jpost('/projects/'+S.project+'/shots/'+id+'/graph/build',{}):await jget('/projects/'+S.project+'/assets/'+id+'/graph');S.graph=parseGraph(g.graph,{kind,id});render();}finally{setBusy(false)}}
 function closeGraph(){S.graph=null;S.selNode=null;render()}
-function parseGraph(g,ref){const nodes=(g&&g.nodes)||{};const ns=[],links=[];
-  for(const id in nodes){const nd=nodes[id];const pos=nd.pos||[0,0];const params=[];
-    for(const k in (nd.inputs||{})){const v=nd.inputs[k];
-      if(Array.isArray(v)){links.push({from:String(v[0]),to:id});}else params.push([k,v]);}
-    ns.push({id,type:nd.class_type,x:pos[0],y:pos[1],params});}
-  return {ref,nodes:ns,links};}
-function renderCanvas(){
-  const g=S.graph; const NW=180; const maxX=Math.max(0,...g.nodes.map(n=>n.x)), maxY=Math.max(0,...g.nodes.map(n=>n.y));
-  const W=maxX+NW+80,H=maxY+260;
-  const wrap=el(`<div style="display:flex;height:100%;gap:0"></div>`);
-  const cv=el(`<div class="scroll card" style="flex:1;position:relative;overflow:auto;background:#fbfbfd"></div>`);
-  const inner=el(`<div style="position:relative;width:${W}px;height:${H}px"></div>`);
+function parseGraph(g,ref){const nodes=(g&&g.nodes)||{};const ns=[],links=[];for(const id in nodes){const nd=nodes[id];const pos=nd.pos||[0,0];const params=[];for(const k in (nd.inputs||{})){const v=nd.inputs[k];if(Array.isArray(v))links.push({from:String(v[0]),to:id});else params.push([k,v]);}ns.push({id,type:nd.class_type,x:pos[0],y:pos[1],params});}return {ref,nodes:ns,links};}
+function renderCanvas(){const g=S.graph,NW=180;const mx=Math.max(0,...g.nodes.map(n=>n.x)),my=Math.max(0,...g.nodes.map(n=>n.y));const W=mx+NW+80,H=my+260;
+  const wrap=el(`<div style="display:flex;height:100%"></div>`);
+  const cv=el(`<div class="scroll" style="flex:1;position:relative;overflow:auto;background:#fbfbfd;background-image:radial-gradient(#e9e9ef 1px,transparent 1px);background-size:24px 24px;border-radius:10px"></div>`);
+  const inner=el(`<div style="position:relative;width:${W}px;height:${H}px"></div>`);const byId={};g.nodes.forEach(n=>byId[n.id]=n);
   let svg=`<svg width="${W}" height="${H}" style="position:absolute;inset:0;pointer-events:none">`;
-  const byId={};g.nodes.forEach(n=>byId[n.id]=n);
-  g.links.forEach(l=>{const s=byId[l.from],d=byId[l.to];if(!s||!d)return;const a=[s.x+NW,s.y+18],b=[d.x,d.y+18];
-    svg+=`<path d="M${a[0]},${a[1]} C${a[0]+55},${a[1]} ${b[0]-55},${b[1]} ${b[0]},${b[1]}" stroke="#c2c2cc" stroke-width="1.5" fill="none"/>`;});
-  svg+='</svg>'; inner.innerHTML=svg;
-  g.nodes.forEach(n=>{const sel=S.selNode===n.id;
-    const node=el(`<div class="card" style="position:absolute;left:${n.x}px;top:${n.y}px;width:${NW}px;border-color:${sel?'var(--accent)':'var(--border)'};box-shadow:0 1px 3px rgba(0,0,0,.06);cursor:pointer">
-      <div style="background:${sel?'#0a84ff':'#eef0f5'};color:${sel?'#fff':'#3a3a3c'};font-size:11px;font-weight:600;padding:5px 8px;border-radius:11px 11px 0 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n.type)}</div>
-      <div style="padding:6px 8px">${n.params.slice(0,5).map(([k,v])=>`<div style="font-size:9px;display:flex;gap:4px"><span class="muted">${esc(k)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(String(v))}</span></div>`).join('')||'<span class="muted" style="font-size:9px">—</span>'}</div></div>`);
-    node.onclick=()=>{S.selNode=n.id;render()}; inner.appendChild(node);});
-  cv.appendChild(inner); wrap.appendChild(cv);
-  if(S.selNode){const n=byId[S.selNode];
-    const insp=el(`<div class="scroll" style="width:240px;border-left:1px solid var(--border);padding:12px;background:var(--card)"></div>`);
-    insp.innerHTML=`<div class="seclabel" style="margin-bottom:6px">⚙ ${esc(n.type)}</div><div class="muted" style="font-size:11px;font-family:monospace">id ${esc(n.id)}</div>`;
-    n.params.forEach(([k,v])=>{const f=el(`<div style="margin-top:8px"><div class="muted" style="font-size:10px">${esc(k)}</div></div>`);
-      const inp=el(`<input class="inp" style="font-family:monospace;font-size:11px;padding:5px 7px" value="${esc(String(v))}"/>`);
-      inp.onchange=()=>editParam(n.id,k,String(v),inp.value); f.appendChild(inp); insp.appendChild(f);});
+  g.links.forEach(l=>{const s=byId[l.from],d=byId[l.to];if(!s||!d)return;const a=[s.x+NW,s.y+18],b=[d.x,d.y+18];svg+=`<path d="M${a[0]},${a[1]} C${a[0]+55},${a[1]} ${b[0]-55},${b[1]} ${b[0]},${b[1]}" stroke="#c2c2cc" stroke-width="2" fill="none"/>`;});
+  svg+='</svg>';inner.innerHTML=svg;
+  g.nodes.forEach(n=>{const sel=S.selNode===n.id;const node=el(`<div style="position:absolute;left:${n.x}px;top:${n.y}px;width:${NW}px;background:#fff;border:${sel?'2px':'1px'} solid ${sel?'var(--blue)':'var(--border)'};border-radius:10px;cursor:pointer;overflow:hidden">
+    <div style="background:${sel?'var(--blue)':'#eef0f5'};color:${sel?'#fff':'#3a3a3c'};font-size:11px;font-weight:600;padding:5px 9px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(n.type)}</div>
+    <div style="padding:7px 9px">${n.params.slice(0,5).map(([k,v])=>`<div style="font-size:9.5px;display:flex;gap:5px"><span class="muted">${esc(k)}</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(String(v))}</span></div>`).join('')||'<span class="muted" style="font-size:9.5px">—</span>'}</div></div>`);
+    node.onclick=()=>{S.selNode=n.id;render()};inner.appendChild(node);});
+  cv.appendChild(inner);wrap.appendChild(cv);
+  if(S.selNode){const n=byId[S.selNode];const insp=el(`<div class="scroll" style="width:240px;border-left:1px solid var(--line);padding:14px;margin-left:12px"></div>`);
+    insp.innerHTML=`<div class="row" style="margin-bottom:8px">${icon('gear',14,'#9a9aa0')}<span class="seclabel">${esc(n.type)}</span></div><div class="muted" style="font-size:11px;font-family:monospace;margin-bottom:8px">id ${esc(n.id)}</div>`;
+    n.params.forEach(([k,v])=>{const f=el(`<div style="margin-top:9px"><div class="muted" style="font-size:10px;margin-bottom:3px">${esc(k)}</div></div>`);const inp=el(`<input class="inp" style="font-family:monospace;font-size:11px;padding:6px 8px" value="${esc(String(v))}"/>`);inp.onchange=()=>editParam(n.id,k,String(v),inp.value);f.appendChild(inp);insp.appendChild(f);});
     wrap.appendChild(insp);}
   return wrap;
 }
 async function editParam(node,widget,old,text){if(text===old)return;let val=text;if(/^-?\d+$/.test(text))val=parseInt(text);else if(/^-?\d*\.\d+$/.test(text))val=parseFloat(text);
-  const r=S.graph.ref;const op={op:'set_param',node,widget,value:val};op[r.kind]=r.id;
-  setBusy(true,'改参…');try{await jpost('/projects/'+S.project+'/ops',{ops:[op],author:'human',rationale:`改参 ${widget}`});await openGraph(r.kind,r.id);await loadDetail();}finally{setBusy(false)}}
+  const r=S.graph.ref;const op={op:'set_param',node,widget,value:val};op[r.kind]=r.id;setBusy(true,'改参…');try{await jpost('/projects/'+S.project+'/ops',{ops:[op],author:'human',rationale:'改参 '+widget});await openGraph(r.kind,r.id);await loadDetail();}finally{setBusy(false)}}
 
 // ---------- ACTIONS ----------
 async function regen(id){const prompt=document.getElementById('d_prompt').value;const w=parseInt(document.getElementById('d_w').value)||null,h=parseInt(document.getElementById('d_h').value)||null;
-  setBusy(true,'重新生成…');const r=await jpost('/projects/'+S.project+'/assets/'+id+'/regenerate',{prompt,width:w,height:h});
-  await pollAndReload(r.job_id);}
+  setBusy(true,'重新生成…');const r=await jpost('/projects/'+S.project+'/assets/'+id+'/regenerate',{prompt,width:w,height:h});await pollAndReload(r.job_id);}
 async function saveTrigger(id){const tr=document.getElementById('d_trigger').value;await jpost('/projects/'+S.project+'/ops',{ops:[{op:'set_character_field',id,field:'trigger',value:tr}],author:'human',rationale:'更新触发词'});await loadDetail();render();}
 async function selectTake(shot,take){await jpost('/projects/'+S.project+'/shots/'+shot+'/select',{take_id:take});await loadDetail();render();}
 async function genShot(shot,backend){setBusy(true,'生成视频…');const r=await jpost('/projects/'+S.project+'/shots/'+shot+'/generate',{backend,confirm:false});
-  if(r.needs_confirm){setBusy(false);if(confirm(`云生成预估 ${r.estimate.seconds}s,约 ¥${r.estimate.cost}。确认?`)){setBusy(true,'云生成…');const r2=await jpost('/projects/'+S.project+'/shots/'+shot+'/generate',{backend:'cloud',confirm:true});await pollAndReload(r2.job_id);}return;}
-  await pollAndReload(r.job_id);}
+  if(r.needs_confirm){setBusy(false);if(confirm(`云生成预估 ${r.estimate.seconds}s,约 ¥${r.estimate.cost}。确认?`)){setBusy(true,'云生成…');const r2=await jpost('/projects/'+S.project+'/shots/'+shot+'/generate',{backend:'cloud',confirm:true});await pollAndReload(r2.job_id);}return;}await pollAndReload(r.job_id);}
 async function exportProj(){setBusy(true,'导出…');const r=await jpost('/projects/'+S.project+'/export',{});setBusy(false);alert('导出: '+(r.fcpxml||''));}
-async function pollAndReload(jid){if(!jid){setBusy(false);return;}await loadDetail();render();
-  while(true){await sleep(1500);const j=await jget('/jobs/'+jid);setBusy(true,j.message||'处理中…');if(j.status==='done'||j.status==='error'){if(j.status==='error')alert('失败: '+j.error);break;}}
-  setBusy(false);await loadDetail();render();}
-function playVideo(url){if(!url)return;showModal(`<div class="card" style="padding:0;overflow:hidden;width:780px"><video src="${url}" controls autoplay style="width:100%;display:block;background:#000"></video><div class="row" style="padding:10px;justify-content:flex-end"><button class="btn" onclick="closeModal()">关闭</button></div></div>`);}
+async function pollAndReload(jid){if(!jid){setBusy(false);return;}await loadDetail();render();while(true){await sleep(1500);const j=await jget('/jobs/'+jid);setBusy(true,j.message||'处理中…');if(j.status==='done'||j.status==='error'){if(j.status==='error')alert('失败: '+j.error);break;}}setBusy(false);await loadDetail();render();}
+function playVideo(url){if(!url)return;showModal(`<div class="pane" style="width:780px"><video src="${url}" controls autoplay style="width:100%;display:block;background:#000"></video><div class="row" style="padding:10px;justify-content:flex-end"><button class="btn" onclick="closeModal()">关闭</button></div></div>`);}
 
-// ---------- NEW ASSET MODAL ----------
-function openNewAsset(){
-  let mode='upload',kind='character',picked=null;
-  const body=el(`<div class="card" style="padding:20px;width:460px">
-    <div style="font-weight:600;font-size:16px;margin-bottom:14px">新建资产</div>
-    <div class="row" style="margin-bottom:10px"><select id="na_kind" class="inp" style="width:130px">${Object.entries(TYPES).map(([k,v])=>`<option value="${k}">${v.cn}</option>`).join('')}</select>
-      <div class="row" id="na_modes" style="flex:1;gap:4px"></div></div>
+// ---------- NEW ASSET ----------
+function openNewAsset(){let mode='upload',picked=null;
+  const body=el(`<div class="pane" style="width:460px;padding:20px">
+    <div style="font-weight:700;font-size:16px;margin-bottom:14px">新建资产</div>
+    <div class="row" style="margin-bottom:10px"><select id="na_kind" class="inp" style="width:120px">${Object.entries(TYPES).map(([k,v])=>`<option value="${k}">${v.cn}</option>`).join('')}</select><div class="row" id="na_modes" style="flex:1;gap:5px"></div></div>
     <input id="na_name" class="inp" placeholder="名称" style="margin-bottom:10px"/>
     <textarea id="na_prompt" class="inp" placeholder="身份/外观描述(年龄性别/面部发型/服装)" rows="3" style="margin-bottom:10px"></textarea>
     <div id="na_file" class="row" style="margin-bottom:10px"><button class="btn" id="na_pick">选择图片</button><span class="muted" id="na_fname" style="font-size:11px"></span></div>
-    <div class="muted" style="font-size:11px;margin-bottom:12px" id="na_hint"></div>
-    <div class="row" style="justify-content:flex-end"><button class="btn" onclick="closeModal()">取消</button><button class="btn btn-accent" id="na_go">创建</button></div></div>`);
+    <div class="muted" style="font-size:11px;margin-bottom:14px" id="na_hint"></div>
+    <div class="row" style="justify-content:flex-end"><button class="btn" onclick="closeModal()">取消</button><button class="btn btn-pri" id="na_go">创建</button></div></div>`);
   const modes=[['upload','上传图片'],['text','文字生成'],['textref','文字+参考图']];
   const hints={upload:'直接把图片存为资产,不跑生成。',text:'用文生图流程出图(角色=三视角)。',textref:'用参考编辑流程(参考图+文字)出图。'};
-  function refresh(){body.querySelector('#na_modes').innerHTML=modes.map(([m,l])=>`<button class="btn ${mode===m?'btn-accent':''}" data-m="${m}" style="padding:4px 8px;font-size:12px">${l}</button>`).join('');
+  function refresh(){body.querySelector('#na_modes').innerHTML=modes.map(([m,l])=>`<button class="btn ${mode===m?'btn-pri':''}" data-m="${m}" style="padding:5px 9px;font-size:12px">${l}</button>`).join('');
     body.querySelectorAll('#na_modes [data-m]').forEach(b=>b.onclick=()=>{mode=b.dataset.m;refresh()});
-    body.querySelector('#na_prompt').style.display=(mode==='upload')?'none':'block';
-    body.querySelector('#na_file').style.display=(mode==='text')?'none':'flex';
-    body.querySelector('#na_hint').textContent=hints[mode];
-    body.querySelector('#na_go').textContent=mode==='upload'?'创建':'生成';}
-  showModal(body); refresh();
-  const fileInp=el(`<input type="file" accept="image/*" style="display:none"/>`);body.appendChild(fileInp);
-  body.querySelector('#na_pick').onclick=()=>fileInp.click();
-  fileInp.onchange=()=>{picked=fileInp.files[0];body.querySelector('#na_fname').textContent=picked?picked.name:'';};
-  body.querySelector('#na_kind').onchange=e=>kind=e.target.value;
-  body.querySelector('#na_go').onclick=async()=>{const name=body.querySelector('#na_name').value.trim();const prompt=body.querySelector('#na_prompt').value.trim();
-    if(!name)return alert('填名称');kind=body.querySelector('#na_kind').value;
-    let refPath=null;
-    if((mode==='upload'||mode==='textref')){if(!picked)return alert('选图片');refPath=await uploadFile(picked);}
-    closeModal();
+    body.querySelector('#na_prompt').style.display=mode==='upload'?'none':'block';body.querySelector('#na_file').style.display=mode==='text'?'none':'flex';
+    body.querySelector('#na_hint').textContent=hints[mode];body.querySelector('#na_go').textContent=mode==='upload'?'创建':'生成';}
+  showModal(body);refresh();
+  const fi=el(`<input type="file" accept="image/*" style="display:none"/>`);body.appendChild(fi);
+  body.querySelector('#na_pick').onclick=()=>fi.click();fi.onchange=()=>{picked=fi.files[0];body.querySelector('#na_fname').textContent=picked?picked.name:'';};
+  body.querySelector('#na_go').onclick=async()=>{const name=body.querySelector('#na_name').value.trim();const prompt=body.querySelector('#na_prompt').value.trim();const kind=body.querySelector('#na_kind').value;
+    if(!name)return alert('填名称');let refPath=null;if((mode==='upload'||mode==='textref')){if(!picked)return alert('选图片');refPath=await uploadFile(picked);}closeModal();
     if(mode==='upload'){await jpost('/projects/'+S.project+'/ops',{ops:[{op:kind==='character'?'create_character':'create_asset',id:(kind==='character'?'char_':kind.slice(0,4)+'_')+Math.random().toString(16).slice(2,10),name,...(kind!=='character'?{type:kind}:{}),finals:[refPath]}],author:'human',rationale:'上传资产 '+name});await loadDetail();render();}
     else{setBusy(true,'生成中…');const r=await jpost('/projects/'+S.project+'/assets/generate',{atype:kind,name,prompt,ref_path:mode==='textref'?refPath:null});await pollAndReload(r.job_id);}};
 }
 async function uploadFile(f){const buf=await f.arrayBuffer();const r=await fetch('/projects/'+S.project+'/upload?filename='+encodeURIComponent(f.name),{method:'POST',body:buf});return (await r.json()).path;}
-
-// ---------- SETTINGS / MODAL ----------
-function openSettings(){showModal(`<div class="card" style="padding:20px;width:420px"><div style="font-weight:600;font-size:16px;margin-bottom:12px">设置 · 服务连接</div>
-  <div class="muted" style="font-size:12px;margin-bottom:6px">后端</div>${S.backends.map(b=>`<div class="row" style="margin-bottom:4px"><span class="chip" style="background:${b.latency==='fast'?'#e6f4ea':'#f6efdc'};color:${b.latency==='fast'?'#28a35a':'#b8860b'}">${esc(b.name)}</span><span class="muted" style="font-size:11px">${(b.caps||[]).join(' · ')}</span></div>`).join('')}
-  <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn btn-accent" onclick="closeModal()">完成</button></div></div>`);}
-function showModal(content){const m=document.getElementById('modal');m.innerHTML='';const bg=el(`<div class="modal-bg" onclick="if(event.target===this)closeModal()"></div>`);bg.appendChild(typeof content==='string'?el(content):content);m.appendChild(bg);}
+function openSettings(){showModal(`<div class="pane" style="width:420px;padding:20px"><div style="font-weight:700;font-size:16px;margin-bottom:12px">设置 · 服务连接</div>
+  <div class="muted" style="font-size:12px;margin-bottom:8px">后端</div>${S.backends.map(b=>`<div class="row" style="margin-bottom:6px"><span class="chip" style="background:${b.latency==='fast'?'var(--green-fill)':'#f6efdc'};color:${b.latency==='fast'?'var(--green)':'#b8860b'}">${esc(b.name)}</span><span class="muted" style="font-size:11px">${(b.caps||[]).join(' · ')}</span></div>`).join('')}
+  <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn btn-pri" onclick="closeModal()">完成</button></div></div>`);}
+function showModal(c){const m=document.getElementById('modal');m.innerHTML='';const bg=el(`<div class="modal-bg" onclick="if(event.target===this)closeModal()"></div>`);bg.appendChild(typeof c==='string'?el(c):c);m.appendChild(bg);}
 function closeModal(){document.getElementById('modal').innerHTML='';}
 
-// ---------- AGENT (SSE) / HISTORY ----------
+// ---------- AGENT / HISTORY ----------
 function setTab(t){S.tab=t;render()}
 function renderRight(){
-  document.querySelectorAll('.tab').forEach(b=>{b.classList.toggle('btn-accent',b.dataset.tab===S.tab)});
+  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('btn-pri',b.dataset.tab===S.tab));
   document.getElementById('chatInputWrap').style.display=S.tab==='chat'?'block':'none';
   const rb=document.getElementById('rightBody');
   if(S.tab==='history'){const h=((S.detail&&S.detail.history)||[]).slice().reverse();
-    rb.innerHTML=h.map(c=>`<div class="row" style="align-items:flex-start;gap:8px;margin-bottom:8px"><span style="color:${c.author==='agent'?'#0a84ff':'#28a35a'};margin-top:3px">●</span>
-      <div><div style="font-size:12px">#${c.seq} · ${esc(c.rationale||'变更')}</div><div class="muted" style="font-size:10px">${c.author==='agent'?'Agent':'你'}</div></div></div>`).join('')||'<div class="muted" style="font-size:12px">还没有变更</div>';
-    return;}
-  rb.innerHTML=S.chat.map(m=>{const user=m.role==='user';
-    return `<div class="row" style="margin-bottom:8px;justify-content:${user?'flex-end':'flex-start'}"><div class="bubble" style="background:${user?'#e7f0ff':'var(--panel)'};color:var(--ink)">${esc(m.text)}</div></div>`}).join('')||'<div class="muted" style="font-size:12px">对 Agent 说点什么 —— 它能拆剧本、备资产、出关键帧与成片。</div>';
+    rb.innerHTML=h.map(c=>`<div class="row" style="align-items:flex-start;gap:8px;margin-bottom:10px"><span class="dot" style="background:${c.author==='agent'?'#7a4ad0':'#0a84ff'};margin-top:4px"></span>
+      <div><div style="font-size:12px">#${c.seq} · ${esc(c.rationale||'变更')}</div><div class="muted" style="font-size:10px">${c.author==='agent'?'Agent':'你'}</div></div></div>`).join('')||'<div class="muted" style="font-size:12px">还没有变更</div>';return;}
+  rb.innerHTML=S.chat.map(m=>{const u=m.role==='user';return `<div class="row" style="margin-bottom:10px;justify-content:${u?'flex-end':'flex-start'}"><div class="bubble" style="background:${u?'var(--blue)':'var(--fill)'};color:${u?'#fff':'var(--ink)'}">${esc(m.text)}</div></div>`}).join('')||'<div class="muted" style="font-size:12px;line-height:1.6">对 Agent 说点什么 —— 它能拆剧本、备资产、出关键帧与成片。</div>';
   rb.scrollTop=rb.scrollHeight;
 }
 async function sendChat(){const t=document.getElementById('chatInput').value.trim();if(!t)return;document.getElementById('chatInput').value='';
-  S.chat.push({role:'user',text:t});S.chat.push({role:'ai',text:'…'});const aiIdx=S.chat.length-1;setBusy(true,'Agent 思考中…');renderRight();
+  S.chat.push({role:'user',text:t});S.chat.push({role:'ai',text:'…'});const ai=S.chat.length-1;setBusy(true,'Agent 思考中…');renderRight();
   try{const resp=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t,project:S.project})});
-    const reader=resp.body.getReader();const dec=new TextDecoder();let buf='',ev='message',finalMsg='',tools=[];
-    while(true){const {value,done}=await reader.read();if(done)break;buf+=dec.decode(value,{stream:true});
-      const parts=buf.split('\n\n');buf=parts.pop();
-      for(const p of parts){for(const line of p.split('\n')){
-        if(line.startsWith('event:'))ev=line.slice(6).trim();
+    const rd=resp.body.getReader(),dec=new TextDecoder();let buf='',ev='message',fin='',tools=[];
+    while(true){const {value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});const parts=buf.split('\n\n');buf=parts.pop();
+      for(const p of parts)for(const line of p.split('\n')){if(line.startsWith('event:'))ev=line.slice(6).trim();
         else if(line.startsWith('data:')){let d={};try{d=JSON.parse(line.slice(5).trim())}catch(e){}
-          if(ev==='tool_call'){tools.push(d.tool);S.chat[aiIdx].text='🔧 '+tools.join(' → ');renderRight();}
-          else if(ev==='tool_result'){await loadDetail();}
-          else if(ev==='message'){finalMsg=d.text||finalMsg;}
-          else if(ev==='error'){finalMsg='❌ '+(d.error||'');}}}}}
-    S.chat[aiIdx].text=finalMsg||'(无输出)';
-  }catch(e){S.chat[aiIdx].text='❌ '+e.message;}
-  setBusy(false);await loadDetail();render();}
+          if(ev==='tool_call'){tools.push(d.tool);S.chat[ai].text='⚙ '+tools.join(' → ');renderRight();}
+          else if(ev==='tool_result')await loadDetail();else if(ev==='message')fin=d.text||fin;else if(ev==='error')fin='⚠ '+(d.error||'');}}}
+    S.chat[ai].text=fin||'(无输出)';
+  }catch(e){S.chat[ai].text='⚠ '+e.message;}setBusy(false);await loadDetail();render();}
 
-// ---------- RENDER ----------
 function render(){renderTree();renderMiddle();renderRight();}
 connect();
 </script>
