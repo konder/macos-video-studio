@@ -1,0 +1,34 @@
+# Spike / Build 成果画廊
+
+> GitHub 网页会内联渲染下面的 GIF/图片(GIF 会自动播放),mp4 点开 blob 也能播。
+
+## 阶段3 成片:一段剧本 → 多镜头一致成片
+
+一段中文情境 → glm-5.2 导演拆 3 镜头 → 每镜头 Qwen-edit 关键帧 + WAN i2v → 拼成片。同一角色跨咖啡馆/街道/天台一致。
+
+![stage3 film](stage3-film.gif)
+
+三镜头取帧:
+![stage3 shots](stage3-film-shots.png)
+
+成片 mp4:[stage3-film.mp4](stage3-film.mp4) · [e2e 3 镜头小样](e2e-minishot.mp4)
+
+## 阶段1 单镜头管线:角色定稿 → 关键帧 → 视频
+![stage1 chain](stage1-chain.png)
+
+## M2 一致性
+
+跨镜头关键帧(Qwen-edit,强一致):
+![e2e keyframes](e2e-keyframes.png)
+
+i2v 视频(身份全程保持):[5B](m2-i2v-char.mp4) · [14B+lightx2v](m2-i2v14b.mp4)
+
+Qwen-edit 把定稿编进场景(对比 anchor):
+![qwen edit](m2-qwenedit-cafe.png)
+
+角色 LoRA vs 基线(人脸):
+![lora](m2-face-compare.png)
+
+## M1 Agent 搭图样图
+![m1 man](m1-sample-man.png)
+![m1 woman](m1-sample-woman.png)
