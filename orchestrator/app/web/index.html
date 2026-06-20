@@ -170,7 +170,7 @@ const ASSET_GROUPS=[
   {key:'wardrobe',cn:'服装',ico:'shirt',type:'wardrobe',sel:{kind:'assetgroup',id:'wardrobe'},list:()=>assets().filter(a=>a.type==='wardrobe'),leafKind:'asset'},
   {key:'prop',cn:'道具',ico:'box',type:'prop',sel:{kind:'assetgroup',id:'prop'},list:()=>assets().filter(a=>a.type==='prop'),leafKind:'asset'},
   {key:'styleframe',cn:'风格',ico:'palette',type:'styleframe',sel:{kind:'assetgroup',id:'styleframe'},list:()=>assets().filter(a=>a.type==='styleframe'),leafKind:'asset'},
-  {key:'custom',cn:'自定义',ico:'box',type:'__custom__',sel:{kind:'assetgroup',id:'custom'},list:()=>assets().filter(a=>!FIXED.includes(a.type)),leafKind:'asset'},
+  {key:'custom',cn:'人物卡片',ico:'layers',type:'__compose__',sel:{kind:'assetgroup',id:'custom'},list:()=>assets().filter(a=>!FIXED.includes(a.type)),leafKind:'asset'},
 ];
 function renderTree(){
   const t=document.getElementById('tree');t.innerHTML='';
@@ -207,7 +207,7 @@ function subgroupRow(g){const open=S.expanded['g_'+g.key];const sel=!S.graph&&S.
     <span style="width:10px;color:var(--t4);font-size:10px">${open?'▾':'▸'}</span>${icon(g.ico,14)}<span style="flex:1">${g.cn}</span>
     <span class="muted" style="font-size:11px">${g.list().length}</span>
     <span class="addbtn" title="新增${g.cn}" style="display:inline-flex;padding:1px;border-radius:5px">${icon('plus',13)}</span></div>`);
-  r.querySelector('.addbtn').onclick=(e)=>{e.stopPropagation();openNewAsset(g.type)};
+  r.querySelector('.addbtn').onclick=(e)=>{e.stopPropagation();g.type==='__compose__'?openCompose():openNewAsset(g.type)};
   r.onclick=()=>{S.sel={...g.sel};S.graph=null;S.expanded['g_'+g.key]=!S.expanded['g_'+g.key];render()};return r}
 
 // ---------- MIDDLE ----------
@@ -216,7 +216,7 @@ function crumb(){
   const k=S.sel;if(k.kind==='character')return '角色 · '+esc(findEnt(k.id)?.name||k.id);
   if(k.kind==='asset')return '资产 · '+esc(findEnt(k.id)?.name||k.id);
   if(k.kind==='shot')return '镜 '+(shots().findIndex(s=>s.id===k.id)+1);
-  if(k.kind==='assetgroup')return esc(S.project||'')+' · 资产 · '+(k.id==='custom'?'自定义':(TYPES[k.id]?.cn||k.id));
+  if(k.kind==='assetgroup')return esc(S.project||'')+' · '+(k.id==='custom'?'人物卡片':(k.id==='environment'?'场景':(TYPES[k.id]?.cn||k.id)));
   return esc(S.project||'')+' · '+({overview:'概览',characters:'角色',assets:'资产',shotsRoot:'分镜',timeline:'成片'}[k.kind]||'');
 }
 function renderMiddle(){
@@ -266,7 +266,7 @@ function gallery(mode){
   let list,leafKind='asset',addType=mode,title;
   if(mode==='character'){list=chars().map(c=>({...c,_t:'character'}));leafKind='character';addType='character';title='角色';}
   else if(mode==='asset'){list=assets().map(a=>({...a,_t:a.type}));addType=null;title='资产';}
-  else if(mode==='custom'){list=assets().filter(a=>!FIXED.includes(a.type)).map(a=>({...a,_t:a.type}));addType='__custom__';title='自定义';}
+  else if(mode==='custom'){list=assets().filter(a=>!FIXED.includes(a.type)).map(a=>({...a,_t:a.type}));addType=null;title='人物卡片';}
   else{list=assets().filter(a=>a.type===mode).map(a=>({...a,_t:a.type}));title=TYPES[mode]?.cn||mode;}
   const cells=list.map(x=>`<div class="sec" style="padding:10px;cursor:pointer" onclick="setSel('${leafKind}','${x.id}')">
     ${thumbBox(x.finals&&x.finals[0],'128px')}<div style="font-size:13px;font-weight:600;margin-top:8px">${esc(x.name)}</div>

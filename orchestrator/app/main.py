@@ -560,6 +560,8 @@ def compose_asset(name: str, body: ComposeIn):
                     finals.append(kf["keyframe"])
             if not finals:
                 raise RuntimeError("组合无产物")
+            from .pipeline import strip_bg
+            finals = [strip_bg(f) for f in finals]
             d2 = store.load()
             record_change(d2, [{"op": "set_asset_field", "id": aid, "field": "finals", "value": finals}],
                           author="human", rationale="组合完成")

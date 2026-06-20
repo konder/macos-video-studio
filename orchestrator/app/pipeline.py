@@ -17,6 +17,21 @@ def _upload(comfy, store_path: str) -> str:
     return comfy.upload_image(data, os.path.basename(store_path))
 
 
+_NO_TRANSPARENT = {"environment", "styleframe"}   # 场景/风格保留背景
+
+
+def strip_bg(store_path: str) -> str:
+    """抠掉背景 → 原地存为透明 PNG(rembg)。失败则保留原图。返回路径。"""
+    try:
+        from rembg import remove
+        from PIL import Image
+        img = Image.open(store_path).convert("RGBA")
+        remove(img).save(store_path)
+    except Exception:  # noqa: BLE001  rembg 不可用/出错则不阻断
+        pass
+    return store_path
+
+
 def generate_asset_images(comfy, recipes, store, atype, prompt, style, width, height, seed, ref_name=None):
     """生成资产图集,返回 (finals, 代表流程图)。角色=分 3 次各出一张单人全身图(严格 3 张);
     有参考图=编辑流程;其余=单张文生图。供 GUI 表单 / Agent / 重生成共用。"""
@@ -44,6 +59,8 @@ def generate_asset_images(comfy, recipes, store, atype, prompt, style, width, he
                 repr_graph = ir
     if not finals:
         raise RuntimeError("无产物")
+    if atype not in _NO_TRANSPARENT:
+        finals = [strip_bg(f) for f in finals]
     return finals, repr_graph
 
 
