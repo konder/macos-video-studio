@@ -9,7 +9,8 @@
 Project（一支片子）
 ├─ meta: 标题 / 风格设定 / 宽高比 / 帧率 / 默认后端偏好 ...
 ├─ AssetLibrary / Character Bible        ← 一致性的锚点
-│   ├─ Character[]   定稿图集 + 身份特征(PuLID/InstantID) + 可选 LoRA + 触发词
+│   ├─ Character[]   来源(文本/参考图) + 风格(写实/二次元) + 定稿图集 +
+│   │                身份锁定(按风格: InstantID·PuLID 或 IPAdapter+角色LoRA) + 触发词
 │   ├─ Wardrobe[]    服装
 │   ├─ Prop[]        道具
 │   ├─ Environment[] 场景背景设定图

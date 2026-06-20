@@ -22,7 +22,8 @@
 
 ## 3. 模型清单（列目录 + 大小）
 对 `<comfyui>/models/` 下各子目录 `ls -lah`，报告文件名+大小：
-- [ ] `checkpoints/`、`unet/`、`diffusion_models/`（找 **Flux** / **SDXL** / **Qwen-Image** / SD1.5 等基模）
+- [ ] `checkpoints/`、`unet/`、`diffusion_models/`（**写实 + 二次元都要**：写实基模 **Flux** / **SDXL** /
+      **Qwen-Image** / SD1.5；二次元基模 **Pony** / **Illustrious** / **NoobAI** / 动漫向 SDXL·Flux）
 - [ ] `vae/`、`clip/`、`clip_vision/`、`text_encoders/`
 - [ ] `loras/`（已有哪些 LoRA）
 - [ ] `controlnet/`
@@ -45,9 +46,11 @@
 - [ ] 有无可用的**图生视频**链路（Wan 或其它）？对应节点名、所需模型是否齐。
 - [ ] 支持的输出规格（分辨率 / 帧数 / 时长上限）、首尾帧（start/end frame）是否支持。
 
-## 6. 一致性能力专项
-- [ ] IPAdapter / InstantID / PuLID / ControlNet **四类是否齐**（权重 + 节点都在）。
-- [ ] 能否在本机**训练角色 LoRA**（有训练链路 / 显存够）？
+## 6. 一致性能力专项（**写实 + 二次元都要**，方法按风格分）
+- [ ] **写实 / 真人脸**：InstantID / PuLID / IPAdapter-FaceID（人脸识别）—— 权重 + 节点是否齐。
+- [ ] **二次元 / 风格化**：IPAdapter（通用参考）+ **角色 LoRA**（强一致）—— 人脸识别类对二次元多不适用。
+- [ ] **通用**：ControlNet（构图 / 姿态控制），两风格都用。
+- [ ] 能否在本机**训练角色 LoRA**（训练链路如 kohya / ai-toolkit、显存够）？—— 二次元一致性常依赖它。
 
 ## 7. 冒烟测试（确认真能出图）
 - [ ] 用已装基模跑一张最简 txt2img（可用 ComfyUI 自带默认 workflow / `/prompt` 提交），确认成功出图并记录耗时。
