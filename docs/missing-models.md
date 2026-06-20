@@ -5,6 +5,13 @@
 > （早先"无权下载"的说法**有误**：那是因为我去 `ls /opt/comfyui-toolkit/models` 被拒——那是个无关的 host 路径，并非运行中 ComfyUI 实际读取的 models 目录。）
 > 由用户决定下哪些（大小 1–20GB 不等）；大小为粗估，下载前以 HF 实际为准。
 
+## 本轮已下载（2026-06，✅ 到 5090 `basedir/models`）
+- **Qwen-Image-Edit 2511 fp8mixed**(20.5G)+ `qwen_image_vae`(253M) → **参考编辑(关键帧)默认方法,已验证强一致**。
+- **qwen_3_8b_fp8mixed**(8.7G)+ **flux2-vae**(336M) → Flux-2 Klein 可作图/KV编辑/更优 LoRA 基模。
+- **lightx2v i2v 4 步 LoRA**(high/low) → 14B i2v 4 步加速(28s),已验证。
+
+**取消/推迟**:Wan-Animate(34G,**无驱动视频条件,已取消下载**);Phantom(仅社区 GGUF,推迟);IPAdapter/InstantID/PuLID(2026 基模不适配,跳过);Flux-2 KV 编辑大模型(Qwen-edit 已覆盖,推迟)。
+
 ## 已经能做（无需下载）
 - **关键帧→视频 i2v**：WAN 2.2 `ti2v_5B` / `i2v_14B`（已装）。单张角色定稿→视频，身份从首帧保持。**已验证**（5B，704²，3.4s，32s 出片）。
 - **云 reference-to-video**：ComfyUI 已带 即梦(Seedance)/可灵/Vidu/Runway/Veo partner 节点，**配 API key 即用**，零下载（计费）。

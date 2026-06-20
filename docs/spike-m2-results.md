@@ -2,6 +2,9 @@
 
 > 对应 [spike-plan.md](spike-plan.md) M2。目标：验证「定稿 → 一致性方法 → 跨场景」的角色身份保持。
 > 环境：RTX 5090 32G · ComfyUI 0.24 · 见 [env-survey.md](env-survey.md)。
+>
+> **⭐ 最新结论(含 Track B Qwen-edit + e2e 跨镜头 + 一致性决策表)见 [spike-summary.md](spike-summary.md)。**
+> 本文是 Track A(角色 LoRA)的早期细节;默认方法已定为 **Qwen-edit 关键帧 + WAN i2v**,LoRA 转备选。
 
 ## 关键环境约束（本次新发现，影响方法选型）
 

@@ -37,16 +37,16 @@ A1 显示 IPAdapter/InstantID/PuLID 未装、且对本机 2026 新基模未必�
 - **M2 spike**：以上方案 × 写实/二次元两风格，验「定稿 → 关键帧 → WAN i2v」整条链的漂移。
 - **依赖 D7**（二次元基模）；这仍是**最该尽早做实验**的点。
 
-**M2 spike 结果（写实线 Track A，详见 [spike-m2-results.md](spike-m2-results.md)）**：
-- 角色 LoRA 跑通，但 **32GB 显存只够 256² 训练**（512² OOM），且唯一完整可训基模 Z-Image Turbo 是
-  distilled turbo（非理想）→ 实测身份一致性只到**中等**；要做强需补 Flux-2 依赖 + 突破 256²（外部训练器/更多显存）。
-- 对照 Track B/C **缺模型**（Qwen edit 基模 ~20GB；Flux-2 vae+文本编码器 ~8–10GB），本轮未跑。
-- **新增并列候选：参考条件（tuning-free，无需 LoRA）** —— 即公网即梦/通义/可灵/Vidu 的"几张定妆照+场景图→强一致"
-  原理（IP-Adapter / ReferenceNet / DiT in-context KV 注入 + 人脸 embedding，身份保持内化进基模、推理零训练）。
-  本机等价能力：**WAN 2.2 `WanPhantomSubjectToVideo`/`WanAnimateToVideo`（本地主体参考→视频，需补权重）**、
-  Flux-2 KV 编辑；以及 **云端 即梦/Vidu/可灵 partner 节点（配 key 即用）**。
-  **倾向**：视频一致性 MVP 走参考条件（云 reference-to-video 或本地 WAN Phantom）可能比本机 LoRA 更省力、上限更高；
-  LoRA 留给需要高保真的主角。待 ① WAN i2v 链路验证 ② 参考条件实测后定 MVP 默认法。
+**M2 spike 结果 + 一致性决策（✅ 已定，2026-06，详见 [spike-summary.md](spike-summary.md) 决策表）**：
+
+| 环节 | **默认** | 备选 |
+|---|---|---|
+| 图像身份锁(关键帧) | **Qwen-Image-Edit**（定稿编进场景,强一致,15s,零训练） | 角色 LoRA(中等,256²受限,DGX 高分可提升);Flux-2 原生参考(待验) |
+| 视频生成 | **WAN i2v**（关键帧→视频,身份全程;5B 草稿/14B+lightx2v 定稿） | 云 reference-to-video(即梦/Vidu,配 key) |
+
+- **e2e 验证**:一张定稿 → Qwen-edit 编进 3 场景 → i2v → 3 镜头小样,**跨镜头身份强一致** → 核心风险retire。
+- 角色 LoRA 实测中等(Z-Image 256² 限);**改为备选**,主角高保真时在 DGX 高分训练。
+- 原"参考条件 tuning-free"判断成立,且**本机已落地为 Qwen-edit(图像)+ WAN i2v(视频)**;Phantom/Animate 不做(Animate 无驱动视频条件)。
 
 ### A6. 算力拓扑：多本地后端 + 路由 —— ✅ 已定（2026-06，spike 引出）
 不止一台本地算力，产品需支持**多本地后端**。Orchestrator 维护后端注册表，按「延迟敏感度 + 显存 + 能力 + 成本」路由：
