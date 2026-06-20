@@ -64,26 +64,71 @@ def _shot(doc: dict, sid: str) -> dict:
 
 
 def apply_project_ops(doc: dict, ops: list[dict]) -> dict:
-    """对项目 doc 就地应用一组有序 op,返回 doc。图级 op 走 apply_ops 落到 shot.graph。"""
+    """对项目 doc 就地应用一组有序 op,返回 doc。图级 op 走 apply_ops 落到 shot.graph。
+
+    所有创建型 op 的 id 由调用方放进 op(create_shot.id/add_take.take/create_*.id),
+    以保证变更可重放、撤销可逆(不在此处随机生成 id)。
+    """
     for op in ops:
         kind = op.get("op")
+        # ---- 图级(改某镜头 graph IR)----
         if kind in _GRAPH_OPS:
             shot = _shot(doc, op["shot"])
             shot["graph"] = apply_ops(shot.get("graph") or {"nodes": {}}, [op])
+        elif kind == "set_pos":
+            shot = _shot(doc, op["shot"])
+            nodes = (shot.setdefault("graph", {"nodes": {}})).setdefault("nodes", {})
+            if op["node"] not in nodes:
+                raise OpError(f"节点不存在: {op['node']}")
+            nodes[op["node"]]["pos"] = op["pos"]
+        # ---- 镜头 ----
+        elif kind == "create_shot":
+            if "id" not in op:
+                raise OpError("create_shot 缺 id")
+            doc.setdefault("shots", []).append({
+                "id": op["id"], "script": op.get("script", ""), "refs": op.get("refs", []),
+                "scene_prompt": op.get("scene_prompt", ""), "motion_prompt": op.get("motion_prompt", ""),
+                "keyframe": None, "takes": [], "selected_take": None, "graph": None})
+        elif kind == "delete_shot":
+            doc["shots"] = [s for s in doc.get("shots", []) if s["id"] != op["shot"]]
+        elif kind == "set_keyframe":
+            _shot(doc, op["shot"])["keyframe"] = op["keyframe"]
+        elif kind == "add_take":
+            shot = _shot(doc, op["shot"])
+            if "take" not in op:
+                raise OpError("add_take 缺 take(id)")
+            shot.setdefault("takes", []).append(
+                {"id": op["take"], "video": op.get("video"), "meta": op.get("meta", {})})
+            if shot.get("selected_take") is None:
+                shot["selected_take"] = op["take"]
         elif kind == "select_take":
             shot = _shot(doc, op["shot"])
             if op["take"] not in [t["id"] for t in shot.get("takes", [])]:
                 raise OpError(f"未知 take: {op['take']}")
             shot["selected_take"] = op["take"]
-        elif kind == "set_meta":
-            doc.setdefault("meta", {})[op["key"]] = op["value"]
-        elif kind == "set_refs":
+        elif kind == "set_refs":            # = assign_asset:设镜头引用的角色/资产
             _shot(doc, op["shot"])["refs"] = op.get("refs", [])
         elif kind == "set_shot_field":      # script/scene_prompt/motion_prompt 等导演层文本
             field = op["field"]
             if field not in {"script", "scene_prompt", "motion_prompt"}:
                 raise OpError(f"不可改字段: {field}")
             _shot(doc, op["shot"])[field] = op["value"]
+        # ---- 资产 / 角色 ----
+        elif kind == "create_character":
+            if "id" not in op:
+                raise OpError("create_character 缺 id")
+            doc.setdefault("characters", []).append({
+                "id": op["id"], "name": op.get("name", ""), "source": op.get("source", "text"),
+                "finals": op.get("finals", []), "trigger": op.get("trigger", ""),
+                "lora": op.get("lora"), "similarity": op.get("similarity")})
+        elif kind == "create_asset":
+            if "id" not in op:
+                raise OpError("create_asset 缺 id")
+            doc.setdefault("assets", []).append({
+                "id": op["id"], "type": op.get("type", "prop"), "name": op.get("name", ""),
+                "prompt": op.get("prompt", ""), "finals": op.get("finals", []), "meta": op.get("meta", {})})
+        elif kind == "set_meta":
+            doc.setdefault("meta", {})[op["key"]] = op["value"]
         else:
             raise OpError(f"未知 op: {kind}")
     return doc

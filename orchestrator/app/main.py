@@ -21,7 +21,7 @@ from .comfy import ComfyClient
 from .config import settings
 from .director import produce_film
 from .export import export_project
-from .ops import OpError, apply_ops, record_change
+from .ops import OpError, apply_project_ops, record_change
 from .recipes import RecipeRegistry
 from .store import ProjectStore
 from .tools import Context, run_ir, validate_ir
@@ -135,23 +135,32 @@ class OpsIn(BaseModel):
     shot_id: str
     ops: list[dict]
     check: bool = True  # 应用后是否对照 /object_info 校验
+    author: str = "human"
+    rationale: str = ""
 
 
 @app.post("/projects/{name}/shots/{shot_id}/ops")
 def shot_ops(name: str, shot_id: str, body: OpsIn):
+    """镜头级图 op:语法糖,自动给每个 op 注入 shot 字段,走统一历史(record_change)。
+    含校验:先在副本上应用+对照 /object_info,通过才落库入历史。"""
+    import copy
     store = _store(name)
     doc = store.load()
-    shot = next((s for s in doc["shots"] if s["id"] == shot_id), None)
-    if shot is None:
+    if not any(s["id"] == shot_id for s in doc.get("shots", [])):
         raise HTTPException(404, f"未知镜头 {shot_id}")
-    ir = shot.get("graph") or {"nodes": {}}
-    new_ir = apply_ops(ir, body.ops)
+    ops = [{**op, "shot": shot_id} for op in body.ops]
+    try:
+        trial = apply_project_ops(copy.deepcopy(doc), ops)
+    except OpError as e:
+        raise HTTPException(400, str(e))
+    new_ir = next(s for s in trial["shots"] if s["id"] == shot_id).get("graph") or {"nodes": {}}
     errors = validate_ir(new_ir, _comfy.object_info()) if body.check else []
     if errors:
         return {"ok": False, "errors": errors, "graph": new_ir}
-    shot["graph"] = new_ir
+    change = record_change(doc, ops, author=body.author, rationale=body.rationale)
+    change["ts"] = time.time(); doc["history"][-1]["ts"] = change["ts"]
     store._write(doc)
-    return {"ok": True, "graph": new_ir}
+    return {"ok": True, "seq": change["seq"], "graph": new_ir}
 
 
 # ---- 项目级 op / 统一历史(api-contract.md)----
@@ -223,12 +232,17 @@ class SelectIn(BaseModel):
 
 @app.post("/projects/{name}/shots/{shot_id}/select")
 def select_take(name: str, shot_id: str, body: SelectIn):
+    """选片:走 op + 统一历史(与客户端 /ops 同源,保留此端点为兼容入口)。"""
     store = _store(name)
+    doc = store.load()
     try:
-        store.select_take(shot_id, body.take_id)
-    except KeyError as e:
+        change = record_change(doc, [{"op": "select_take", "shot": shot_id, "take": body.take_id}],
+                               author="human", rationale="选用 take")
+    except OpError as e:
         raise HTTPException(404, str(e))
-    return {"ok": True, "shot": shot_id, "selected_take": body.take_id}
+    change["ts"] = time.time(); doc["history"][-1]["ts"] = change["ts"]
+    store._write(doc)
+    return {"ok": True, "shot": shot_id, "selected_take": body.take_id, "seq": change["seq"]}
 
 
 # ---- 云接入状态(阶段6) ----
