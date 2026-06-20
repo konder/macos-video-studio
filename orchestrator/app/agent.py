@@ -75,7 +75,7 @@ def run_agent(
     user_message: str,
     ctx: tools.Context,
     on_event: Callable[[dict], None] | None = None,
-    max_iters: int = 12,
+    max_iters: int = 30,
     history: list[dict] | None = None,
 ) -> tuple[str, tools.Context]:
     if not settings.model:
@@ -83,7 +83,7 @@ def run_agent(
     client = make_client()
     openai_tools = _openai_tools()
     messages: list[dict] = [{"role": "system", "content": SYSTEM}]
-    for h in (history or [])[-10:]:   # 近 10 轮上下文(多轮对话)
+    for h in (history or [])[-20:]:   # 近 20 轮上下文(多轮对话)
         if h.get("content"):
             messages.append({"role": "assistant" if h.get("role") == "assistant" else "user", "content": h["content"]})
     messages.append({"role": "user", "content": user_message})

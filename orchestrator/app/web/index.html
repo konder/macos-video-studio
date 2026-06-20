@@ -69,9 +69,11 @@
   </main>
 
   <aside class="pane" style="width:340px">
-    <div class="row" style="padding:12px 14px;border-bottom:1px solid var(--line)">
-      <span class="row" style="gap:6px;font-weight:600;font-size:13px"><span id="agentIco"></span>Agent</span>
-      <span style="flex:1"></span><span class="muted" id="footModel" style="font-size:11px">—</span>
+    <div class="row" style="padding:10px 12px;border-bottom:1px solid var(--line)">
+      <span id="agentIco"></span>
+      <select id="sesSel" class="inp" style="flex:1;width:auto;padding:5px 8px;font-size:12px" onchange="switchSession(this.value)"></select>
+      <button class="btn" style="padding:5px 8px" title="新会话" onclick="newSession()"><span id="newSesIco"></span></button>
+      <button class="btn" style="padding:5px 8px" title="删除会话" onclick="delSession()"><span id="delSesIco"></span></button>
     </div>
     <div class="scroll" id="rightBody" style="flex:1;padding:14px"></div>
     <div style="padding:12px;border-top:1px solid var(--line)">
@@ -87,7 +89,7 @@
 
 <script>
 const S={base:'',project:null,projects:[],detail:null,sel:{kind:'overview'},expanded:{p:true,asset:true,shot:true,g_character:true},
-  chat:[],busy:false,model:'',backends:[],tab:'chat',graph:null,selNode:null};
+  sessions:[],curSession:null,busy:false,model:'',backends:[],graph:null,selNode:null,chatAttach:null};
 const TYPES={character:{cn:'角色',ico:'user',color:'#7a4ad0',fill:'#efe4ff'},wardrobe:{cn:'服装',ico:'shirt',color:'#2f8a4d',fill:'#e3f5e8'},
   prop:{cn:'道具',ico:'box',color:'#b8860b',fill:'#f6efdc'},environment:{cn:'场景',ico:'image',color:'#2f6a8a',fill:'#e3eef7'},styleframe:{cn:'风格',ico:'palette',color:'#b0418a',fill:'#f7e6f0'},
   composed:{cn:'组合',ico:'layers',color:'#0a84ff',fill:'#dcecff'}};
@@ -111,7 +113,9 @@ const P={
  refresh:'<path d="M20 11a8 8 0 1 0-.5 4M20 4v5h-5"/>',
  code:'<path d="M8.5 8.5L5 12l3.5 3.5M15.5 8.5L19 12l-3.5 3.5"/>',
  lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
- quote:'<path d="M5 7h6v6H7l-2 4zM13 7h6v6h-4l-2 4z"/>'};
+ quote:'<path d="M5 7h6v6H7l-2 4zM13 7h6v6h-4l-2 4z"/>',
+ trash:'<path d="M4 7h16M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13"/>',
+ chat:'<path d="M4 5h16v11H8l-4 4z"/>'};
 function icon(name,size,color){const c=color||'currentColor';return `<svg class="ico" width="${size||16}" height="${size||16}" viewBox="0 0 24 24" fill="none" stroke="${c}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${P[name]||''}</svg>`}
 // 深底人像剪影占位
 function silhouette(){return `<svg width="40%" height="40%" viewBox="0 0 24 24"><circle cx="12" cy="9" r="4" fill="#3a3a46"/><path d="M3 22c0-5 4-8 9-8s9 3 9 8z" fill="#3a3a46"/></svg>`}
@@ -126,17 +130,32 @@ function setBusy(b,msg){S.busy=b;document.getElementById('globalBusy').innerHTML
 
 // brand/static icons
 document.getElementById('brandIco').innerHTML=icon('film',18);
-document.getElementById('agentIco').innerHTML=icon('spark',13);
+document.getElementById('agentIco').innerHTML=icon('spark',14,'#9a9aa0');
 document.getElementById('sendIco').innerHTML=icon('send',14);
+document.getElementById('newSesIco').innerHTML=icon('plus',14);
+document.getElementById('delSesIco').innerHTML=icon('trash',14);
 
 async function connect(){
-  try{const h=await jget('/healthz');S.model=h.model||'';document.getElementById('footModel').textContent=S.model||'—';
+  try{const h=await jget('/healthz');S.model=h.model||'';
     S.backends=(await jget('/backends')).backends||[];await loadProjects();
-    if(!S.project&&S.projects[0])S.project=S.projects[0];if(S.project)await loadDetail();render();
-  }catch(e){document.getElementById('footModel').textContent='连接失败';}}
+    if(!S.project&&S.projects[0])S.project=S.projects[0];if(S.project){loadSessions();await loadDetail();}render();
+  }catch(e){console.error(e);}}
 async function loadProjects(){S.projects=(await jget('/projects')).projects||[]}
 async function loadDetail(){if(!S.project)return;S.detail=await jget('/projects/'+S.project);renderTree();renderMiddle();}
-async function selectProject(n){S.project=n;S.sel={kind:'overview'};S.graph=null;await loadDetail();render();}
+async function selectProject(n){S.project=n;S.sel={kind:'overview'};S.graph=null;loadSessions();await loadDetail();render();}
+// ---------- 会话(多 session,本地持久化)----------
+function sesKey(){return 'rf_ses_'+(S.project||'')}
+function loadSessions(){try{S.sessions=JSON.parse(localStorage.getItem(sesKey())||'[]')}catch(e){S.sessions=[]}
+  if(!S.sessions.length)S.sessions=[{id:'s'+Date.now(),title:'会话 1',chat:[]}];S.curSession=S.sessions[0].id;}
+function saveSessions(){try{localStorage.setItem(sesKey(),JSON.stringify(S.sessions))}catch(e){}}
+function curSes(){if(!S.sessions.length)loadSessions();return S.sessions.find(s=>s.id===S.curSession)||S.sessions[0]}
+function curChat(){return curSes().chat}
+function newSession(){const s={id:'s'+Date.now(),title:'会话 '+(S.sessions.length+1),chat:[]};S.sessions.unshift(s);S.curSession=s.id;saveSessions();render();}
+function switchSession(id){S.curSession=id;render();}
+function delSession(){if(S.sessions.length<=1){curSes().chat=[];curSes().title='会话 1';saveSessions();render();return;}
+  if(!confirm('删除当前会话?'))return;S.sessions=S.sessions.filter(s=>s.id!==S.curSession);S.curSession=S.sessions[0].id;saveSessions();render();}
+function renderSessions(){const sel=document.getElementById('sesSel');if(!sel)return;
+  sel.innerHTML=S.sessions.map(s=>`<option value="${s.id}" ${s.id===S.curSession?'selected':''}>${esc(s.title)}</option>`).join('');}
 function chars(){return (S.detail&&S.detail.characters)||[]}
 function assets(){return (S.detail&&S.detail.assets)||[]}
 function shots(){return (S.detail&&S.detail.shots)||[]}
@@ -150,7 +169,6 @@ const ASSET_GROUPS=[
   {key:'character',cn:'角色',ico:'user',type:'character',sel:{kind:'characters'},list:()=>chars(),leafKind:'character'},
   {key:'wardrobe',cn:'服装',ico:'shirt',type:'wardrobe',sel:{kind:'assetgroup',id:'wardrobe'},list:()=>assets().filter(a=>a.type==='wardrobe'),leafKind:'asset'},
   {key:'prop',cn:'道具',ico:'box',type:'prop',sel:{kind:'assetgroup',id:'prop'},list:()=>assets().filter(a=>a.type==='prop'),leafKind:'asset'},
-  {key:'environment',cn:'场景',ico:'image',type:'environment',sel:{kind:'assetgroup',id:'environment'},list:()=>assets().filter(a=>a.type==='environment'),leafKind:'asset'},
   {key:'styleframe',cn:'风格',ico:'palette',type:'styleframe',sel:{kind:'assetgroup',id:'styleframe'},list:()=>assets().filter(a=>a.type==='styleframe'),leafKind:'asset'},
   {key:'custom',cn:'自定义',ico:'box',type:'__custom__',sel:{kind:'assetgroup',id:'custom'},list:()=>assets().filter(a=>!FIXED.includes(a.type)),leafKind:'asset'},
 ];
@@ -167,7 +185,12 @@ function renderTree(){
         if(S.expanded['g_'+g.key]) g.list().forEach(item=>t.appendChild(leaf(dotIco(g.type==='__custom__'?item.type:g.type),item.name,g.leafKind,3,item.id)));
       });
       t.appendChild(parentRow(icon('layers',14),'分镜','shot','shotsRoot'));
-      if(S.expanded.shot)shots().forEach((s,i)=>t.appendChild(leaf(icon('image',14),'镜 '+(i+1),'shot',2,s.id)));
+      if(S.expanded.shot){
+        const envG={key:'environment',cn:'场景',ico:'image',type:'environment',sel:{kind:'assetgroup',id:'environment'},list:()=>assets().filter(a=>a.type==='environment'),leafKind:'asset'};
+        t.appendChild(subgroupRow(envG));
+        if(S.expanded['g_environment'])envG.list().forEach(a=>t.appendChild(leaf(dotIco('environment'),a.name,'asset',3,a.id)));
+        shots().forEach((s,i)=>t.appendChild(leaf(icon('image',14),'镜 '+(i+1),'shot',2,s.id)));
+      }
       t.appendChild(leaf(icon('export',14),'成片 / 导出','timeline',1));
     }});
   if(!S.projects.length)t.appendChild(el(`<div class="muted" style="font-size:12px;padding:8px">暂无项目</div>`));
@@ -270,7 +293,12 @@ function detail(x){
     <div class="row" style="margin-bottom:14px"><span style="font-weight:700;font-size:16px">${esc(x.name)}</span>${typeChip(isChar?'character':x.type)}
       ${usedIn.length?`<span class="chip" style="background:var(--green-fill);color:var(--green)">在 ${usedIn.length} 个镜头使用</span>`:''}
       <span style="flex:1"></span><button class="btn" style="color:#d33;border-color:#f0caca" onclick="delAsset('${x.id}',${isChar},'${esc(x.name)}')">删除</button></div>
-    <div class="seclabel" style="margin-bottom:10px">${isChar?'多视角定稿 (turnaround)':'参考图'}</div>${finalsView(x.finals)}</div>`;
+    <div class="seclabel" style="margin-bottom:10px">${(isChar||x.type==='composed'||x.type==='wardrobe'||x.type==='prop')?'多视角整合图':'参考图'}</div>${finalsView(x.finals)}</div>`;
+  if(x.meta&&Array.isArray(x.meta.composed_from)&&x.meta.composed_from.length){
+    const comps=x.meta.composed_from.map(id=>findEnt(id)).filter(Boolean);
+    html+=`<div class="sec" style="margin-bottom:16px"><div class="seclabel" style="margin-bottom:10px">组成(来源资产)</div>
+      <div class="row" style="gap:10px;flex-wrap:wrap">${comps.map(c=>`<div style="width:90px;cursor:pointer" onclick="setSel('${chars().some(z=>z.id===c.id)?'character':'asset'}','${c.id}')">${thumbBox(c.finals&&c.finals[0],'60px')}<div style="font-size:11px;margin-top:4px;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(c.name)}</div></div>`).join('')}</div></div>`;
+  }
   html+=`<div class="sec" style="margin-bottom:16px"><div class="row" style="margin-bottom:10px">${icon('quote',14,'#9a9aa0')}<span class="seclabel">生成提示词</span></div>
     <textarea id="d_prompt" class="inp" rows="3">${esc(x.prompt||'')}</textarea>
     <div class="row" style="margin-top:12px"><span class="muted" style="font-size:12px">尺寸</span>
@@ -412,8 +440,9 @@ function closeModal(){document.getElementById('modal').innerHTML='';}
 // ---------- AGENT(对话 + react 过程)----------
 const TOOLCN={search_recipes:'检索配方',instantiate_recipe:'实例化流程',set_param:'改参数',add_node:'加节点',connect:'连线',delete_node:'删节点',estimate:'预估',validate:'校验',run:'执行出图',create_asset:'创建资产',list_assets:'查看已有资产',update_asset:'修改并重生成资产'};
 function renderRight(){
+  renderSessions();
   const rb=document.getElementById('rightBody');
-  rb.innerHTML=S.chat.map(m=>{
+  rb.innerHTML=curChat().map(m=>{
     if(m.role==='user')return `<div class="row" style="margin-bottom:12px;justify-content:flex-end"><div class="bubble" style="background:var(--blue);color:#fff">${esc(m.text)}</div></div>`;
     const steps=(m.steps||[]).map(s=>`<div class="row" style="gap:6px;font-size:11.5px;color:var(--t3);margin:3px 0">${s.done?'<span style="color:var(--green)">✓</span>':'<span class="spin" style="width:11px;height:11px"></span>'}<span>${esc(s.label)}</span></div>`).join('');
     const body=(steps?`<div style="${m.text?'border-bottom:1px solid var(--border);padding-bottom:7px;margin-bottom:7px':''}">${steps}</div>`:'')+(m.text?`<div style="line-height:1.55">${esc(m.text)}</div>`:(steps?'':'<span class="spin"></span>'));
@@ -422,10 +451,12 @@ function renderRight(){
   rb.scrollTop=rb.scrollHeight;
 }
 async function sendChat(){const ipt=document.getElementById('chatInput');const t=ipt.value.trim();const att=S.chatAttach;if(!t&&!att)return;ipt.value='';
-  const hist=S.chat.filter(m=>m.text&&m.text!=='…').slice(-10).map(m=>({role:m.role==='user'?'user':'assistant',content:m.text}));
-  const userText=t+(att?' [附参考图]':'');S.chat.push({role:'user',text:userText});
+  const chat=curChat();
+  const hist=chat.filter(m=>m.text&&m.text!=='…').slice(-20).map(m=>({role:m.role==='user'?'user':'assistant',content:m.text}));
+  const userText=t+(att?' [附参考图]':'');chat.push({role:'user',text:userText});
+  if(curSes().chat.length===1)curSes().title=t.slice(0,16)||'会话';   // 首条消息作标题
   const ai={role:'ai',steps:[],text:''};
-  S.chat.push(ai);S.chatAttach=null;renderAttach();setBusy(true,'Agent 思考中…');renderRight();
+  chat.push(ai);S.chatAttach=null;renderAttach();setBusy(true,'Agent 思考中…');renderRight();
   try{const resp=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t,project:S.project,image:att?att.path:null,history:hist})});
     const rd=resp.body.getReader(),dec=new TextDecoder();let buf='',ev='message';
     while(true){const {value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});const parts=buf.split('\n\n');buf=parts.pop();
@@ -435,7 +466,7 @@ async function sendChat(){const ipt=document.getElementById('chatInput');const t
           else if(ev==='tool_result'){ai.steps.forEach(s=>s.done=true);await loadDetail();renderRight();}
           else if(ev==='message')ai.text=d.text||ai.text;else if(ev==='error')ai.text='⚠ '+(d.error||'');}}}
     ai.steps.forEach(s=>s.done=true);if(!ai.text)ai.text='(无输出)';
-  }catch(e){ai.text='⚠ '+e.message;}setBusy(false);await loadDetail();render();}
+  }catch(e){ai.text='⚠ '+e.message;}saveSessions();setBusy(false);await loadDetail();render();}
 // 粘贴图片 → 上传 → 附件
 function renderAttach(){const a=document.getElementById('chatAttach');if(!S.chatAttach){a.innerHTML='';return;}
   a.innerHTML=`<div class="row" style="gap:8px;margin-bottom:8px;padding:6px;background:var(--fill);border-radius:10px"><img src="${media(S.chatAttach.path)}" style="width:40px;height:40px;object-fit:cover;border-radius:6px"/><span class="muted" style="font-size:11px;flex:1">参考图已附加</span><span class="btn" style="padding:2px 8px" onclick="S.chatAttach=null;renderAttach()">×</span></div>`;}

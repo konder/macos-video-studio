@@ -144,8 +144,17 @@ ReelForge 本质是一个**视频生成的工作流软件**。把"用 AI 生成�
 - **组合资产**:`POST /projects/{name}/assets/compose {name,asset_ids,prompt}` —— 选 2–3 个资产(角色/服装/道具/场景)作多图参考,Qwen-edit(keyframe_compose)合成一张新资产(type=composed,落「自定义/组合」),create-first + 异步回填。
 - **概览=项目**:点项目行即选中概览(项目与概览同时高亮)。
 
+### 3.9 组合资产 + 多轮 Agent(2026-06)✅
+- **组合资产(自定义)**:选 2–3 个资产(角色/服装/道具)→ `POST /assets/compose`,用 keyframe_compose 分
+  **3 视(正/侧/背)**合成"角色穿戴道具"的**整合定型图**(非单张);type=composed,落「自定义」。
+  详情页显示「组成(来源资产)」缩略,可点回各组件。(细节图=各来源资产自身图)
+- **场景移到分镜**:`场景(environment)` 从「资产」移到「分镜」分组下(仍是 asset type=environment,只改归属位置)。
+- **Agent 多轮**:`/chat` 带近 20 轮历史;`list_assets`/`update_asset` 工具让细化走"改已有"而非新建;
+  工具循环上限 30 迭代(复杂任务多次调工具);回复只给自然语言。
+- **多会话**:右栏 Agent 支持多个 session 切换/新建/删除(按项目本地持久化 localStorage),首条消息作标题。
+
 ## 4. 分镜头制作 ⏳(下一节对焦)
-在资产之上,经流程重新生成与整合:关键帧 → 视频 take → 选片。待用户展开。
+在资产之上,经流程重新生成与整合:**场景(environment)归此** → 关键帧 → 视频 take → 选片。(详细待对焦)
 
 ## 5. 视频/音频剪辑合成 ⏳(占位)
 本期占位。已有最小实现:按选定 take 顺序拼接 + 导出 1080p 片段 + FCPXML(给外部 NLE 收尾)。

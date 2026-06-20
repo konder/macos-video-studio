@@ -542,15 +542,29 @@ def compose_asset(name: str, body: ComposeIn):
         JOBS.update(jid, status="running")
         try:
             from .pipeline import keyframe_compose
+            from .recipes import _look
             comfy = _registry.route("edit").client
-            kf = keyframe_compose(comfy, store, refs, prompt, seed=random.randint(1, 2_000_000_000), prefix=f"compose_{aid}")
-            if not kf.get("keyframe"):
-                raise RuntimeError(str(kf.get("errors", "无产物")))
+            look = _look(style)
+            seed = random.randint(1, 2_000_000_000)
+            views = [("front", "full-body front view facing camera"),
+                     ("side", "full-body side view profile"),
+                     ("back", "full-body back view from behind")]
+            finals = []
+            for lab, vp in views:
+                vprompt = (f"{look}, {vp}, single person, full body head to toe, standing, "
+                           f"combine the references into one character: keep image 1 person's face and identity, "
+                           f"dressed in and holding the other reference items; consistent character design across views; "
+                           f"plain white background, even lighting. {prompt}")
+                kf = keyframe_compose(comfy, store, refs, vprompt, seed=seed, prefix=f"compose_{aid}_{lab}")
+                if kf.get("keyframe"):
+                    finals.append(kf["keyframe"])
+            if not finals:
+                raise RuntimeError("组合无产物")
             d2 = store.load()
-            record_change(d2, [{"op": "set_asset_field", "id": aid, "field": "finals", "value": [kf["keyframe"]]}],
+            record_change(d2, [{"op": "set_asset_field", "id": aid, "field": "finals", "value": finals}],
                           author="human", rationale="组合完成")
             d2["history"][-1]["ts"] = time.time(); store._write(d2)
-            JOBS.update(jid, status="done", message="完成", result={"finals": [kf["keyframe"]]})
+            JOBS.update(jid, status="done", message="完成", result={"finals": finals})
         except Exception as e:  # noqa: BLE001
             JOBS.update(jid, status="error", error=str(e), message=f"失败: {e}")
 
