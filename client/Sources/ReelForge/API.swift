@@ -48,10 +48,20 @@ struct API {
     }
     func project(_ name: String) async throws -> ProjectDetail { try await get("projects/\(name)") }
     func makeFilm(_ req: FilmRequest) async throws -> FilmResponse { try await post("films", req) }
-    func selectTake(project: String, shot: String, take: String) async throws {
-        struct Sel: Encodable { let take_id: String }
-        struct Ok: Decodable { let ok: Bool }
-        let _: Ok = try await post("projects/\(project)/shots/\(shot)/select", Sel(take_id: take))
+
+    /// 提交一段 ops 作为一个变更(人/Agent 同构,进统一历史)。返回新 seq。
+    /// ops 取值异构,用 JSONSerialization 编码。
+    @discardableResult
+    func submitChange(project: String, ops: [[String: Any]], author: String = "human",
+                      rationale: String = "") async throws -> Int {
+        var req = URLRequest(url: try url("projects/\(project)/ops"))
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body: [String: Any] = ["ops": ops, "author": author, "rationale": rationale]
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, _) = try await URLSession.shared.data(for: req)
+        struct R: Decodable { let ok: Bool?; let seq: Int? }
+        return (try JSONDecoder().decode(R.self, from: data)).seq ?? 0
     }
     func chat(message: String, project: String) async throws -> String {
         struct In: Encodable { let message: String; let project: String }

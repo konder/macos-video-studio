@@ -727,16 +727,38 @@ struct TimelineView: View {
 struct AgentPane: View {
     @EnvironmentObject var state: AppState
     @State private var input = ""
+    @State private var tab = 0   // 0=对话 1=历史
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                SectionLabel(icon: "sparkle", text: "Agent")
+            HStack(spacing: 8) {
+                ForEach(Array(["对话", "历史"].enumerated()), id: \.offset) { i, name in
+                    Button { tab = i } label: {
+                        Text(name).font(.system(size: 12, weight: .medium))
+                            .padding(.horizontal, 10).padding(.vertical, 3)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(tab == i ? Theme.surfaceHi : .clear))
+                            .foregroundStyle(tab == i ? Theme.ink : Theme.inkSoft)
+                    }.buttonStyle(.plain)
+                }
                 Spacer()
                 Button { state.rightCollapsed = true } label: { Image(systemName: "sidebar.right") }
                     .buttonStyle(.plain).foregroundStyle(Theme.inkSoft).help("收起")
-            }.padding(.horizontal, 14).padding(.vertical, 12)
+            }.padding(.horizontal, 12).padding(.vertical, 10)
             Rectangle().fill(Theme.border).frame(height: 1)
 
+            if tab == 1 { HistoryList() } else { chatBody }
+
+            HStack(spacing: 8) {
+                Pill(text: state.model.isEmpty ? "—" : state.model, color: Theme.accent)
+                if let b = state.backends.first { Pill(text: b.name.replacingOccurrences(of: "local-", with: ""), color: Theme.inkSoft) }
+                Text(state.project).font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
+                Spacer()
+            }.padding(.horizontal, 14).padding(.bottom, 10)
+        }
+        .background(Theme.bg)
+    }
+
+    var chatBody: some View {
+        VStack(spacing: 0) {
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 8) {
@@ -751,7 +773,6 @@ struct AgentPane: View {
                     if let last = state.chatLog.indices.last { withAnimation { proxy.scrollTo(last, anchor: .bottom) } }
                 }
             }
-
             Rectangle().fill(Theme.border).frame(height: 1)
             VStack(spacing: 8) {
                 TextField("给 Agent 发消息…", text: $input, axis: .vertical)
@@ -768,17 +789,37 @@ struct AgentPane: View {
             .background(RoundedRectangle(cornerRadius: 12).fill(Theme.surface))
             .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Theme.border, lineWidth: 1))
             .padding(12)
-
-            HStack(spacing: 8) {
-                Pill(text: state.model.isEmpty ? "—" : state.model, color: Theme.accent)
-                if let b = state.backends.first { Pill(text: b.name.replacingOccurrences(of: "local-", with: ""), color: Theme.inkSoft) }
-                Text(state.project).font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
-                Spacer()
-            }.padding(.horizontal, 14).padding(.bottom, 10)
         }
-        .background(Theme.bg)
     }
     func send() { let t = input; input = ""; Task { await state.send(t) } }
+}
+
+// 统一历史:每个变更按作者着色,可解释日志(api-contract / native-ui §5)
+struct HistoryList: View {
+    @EnvironmentObject var state: AppState
+    func color(_ author: String) -> Color { author == "agent" ? Theme.accent : Color(red: 0.42, green: 0.66, blue: 0.86) }
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                if state.history.isEmpty {
+                    Text("还没有变更。选用 take、改参等写操作都会进这条统一历史。")
+                        .font(.system(size: 12)).foregroundStyle(Theme.inkSoft).padding(.top, 8)
+                }
+                ForEach(state.history) { c in
+                    HStack(alignment: .top, spacing: 8) {
+                        Circle().fill(color(c.author)).frame(width: 7, height: 7).padding(.top, 4)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("#\(c.seq) · \(c.rationale ?? "变更")").font(.system(size: 12)).foregroundStyle(Theme.ink)
+                            Text(c.author == "agent" ? "Agent" : "你").font(.system(size: 10)).foregroundStyle(color(c.author))
+                        }
+                        Spacer(minLength: 0)
+                    }
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(Theme.surface))
+                }
+            }.padding(12)
+        }
+    }
 }
 
 struct Bubble: View {

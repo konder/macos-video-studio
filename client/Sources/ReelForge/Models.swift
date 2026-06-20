@@ -67,11 +67,22 @@ struct Asset: Codable, Identifiable, Hashable {
     let finals: [String]?
 }
 
+// 统一历史里的一个变更(api-contract:ops[] + author/ts/rationale,带 seq)
+struct Change: Codable, Identifiable, Hashable {
+    let seq: Int
+    let author: String
+    let rationale: String?
+    let ts: Double?
+    var id: Int { seq }
+}
+
 struct ProjectDetail: Codable {
     let meta: Meta?
     let characters: [Character]?
     let assets: [Asset]?
     let shots: [Shot]?
+    let history: [Change]?
+    let seq: Int?
 }
 
 struct ProjectsList: Codable { let projects: [String] }

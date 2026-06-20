@@ -34,6 +34,7 @@ final class AppState: ObservableObject {
 
     var characters: [Character] { detail?.characters ?? [] }
     var assets: [Asset] { detail?.assets ?? [] }
+    var history: [Change] { (detail?.history ?? []).reversed() }   // 最新在上
     func character(_ id: String) -> Character? { characters.first { $0.id == id } }
     func asset(_ id: String) -> Asset? { assets.first { $0.id == id } }
     func shot(_ id: String) -> Shot? { shots.first { $0.id == id } }
@@ -128,9 +129,14 @@ final class AppState: ObservableObject {
         catch { chatLog.append("❌ \(error.localizedDescription)") }
     }
 
+    /// 选用 take —— 走 op API,进统一历史(人/Agent 同构,无特权写路径)。
     func select(shot: String, take: String) async {
-        do { try await api.selectTake(project: project, shot: shot, take: take); await refreshShots() }
-        catch { chatLog.append("❌ 选片失败: \(error.localizedDescription)") }
+        do {
+            try await api.submitChange(project: project,
+                ops: [["op": "select_take", "shot": shot, "take": take]],
+                author: "human", rationale: "选用 take")
+            await loadDetail()
+        } catch { chatLog.append("❌ 选片失败: \(error.localizedDescription)") }
     }
 
     func export() async {

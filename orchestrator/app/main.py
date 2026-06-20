@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import os
+import time
 
 from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
@@ -20,7 +21,7 @@ from .comfy import ComfyClient
 from .config import settings
 from .director import produce_film
 from .export import export_project
-from .ops import apply_ops
+from .ops import OpError, apply_ops, record_change
 from .recipes import RecipeRegistry
 from .store import ProjectStore
 from .tools import Context, run_ir, validate_ir
@@ -151,6 +152,42 @@ def shot_ops(name: str, shot_id: str, body: OpsIn):
     shot["graph"] = new_ir
     store._write(doc)
     return {"ok": True, "graph": new_ir}
+
+
+# ---- 项目级 op / 统一历史(api-contract.md)----
+# 人和 Agent 经同一套 op 改同一份模型,落进同一条历史(单调 seq)。无特权写路径。
+class ChangeIn(BaseModel):
+    ops: list[dict]
+    author: str = "human"           # human | agent
+    rationale: str = ""             # 「为什么这么搭」
+    tool_call: str | None = None
+    check: bool = True              # 含图级 op 时对照 /object_info 校验
+
+
+@app.post("/projects/{name}/ops")
+def project_ops(name: str, body: ChangeIn):
+    store = _store(name)
+    doc = store.load()
+    try:
+        change = record_change(doc, body.ops, author=body.author,
+                               rationale=body.rationale, tool_call=body.tool_call)
+    except OpError as e:
+        raise HTTPException(400, str(e))
+    change["ts"] = time.time()
+    doc["history"][-1]["ts"] = change["ts"]
+    store._write(doc)
+    return {"ok": True, "seq": change["seq"], "change": change}
+
+
+@app.get("/projects/{name}/state")
+def project_state(name: str, since: int = 0):
+    """断线重连/增量同步:since=0 返回全量 doc;否则返回 seq 之后的变更。"""
+    doc = _store(name).load()
+    seq = int(doc.get("seq", 0))
+    if since <= 0:
+        return {"seq": seq, "project": doc}
+    changes = [c for c in doc.get("history", []) if c.get("seq", 0) > since]
+    return {"seq": seq, "changes": changes}
 
 
 # ---- 选片 ----
