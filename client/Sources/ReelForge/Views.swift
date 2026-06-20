@@ -36,6 +36,62 @@ func assetMeta(_ t: String) -> (String, String) {
     }
 }
 
+// 选参考图(NSOpenPanel)→ (字节, 文件名)
+func pickImageData() -> (Data, String)? {
+    let panel = NSOpenPanel()
+    panel.canChooseFiles = true; panel.canChooseDirectories = false; panel.allowsMultipleSelection = false
+    panel.allowedFileTypes = ["png", "jpg", "jpeg", "webp"]
+    guard panel.runModal() == .OK, let u = panel.url, let d = try? Data(contentsOf: u) else { return nil }
+    return (d, u.lastPathComponent)
+}
+
+// 新建角色/资产表单(走 op + 历史)
+struct NewElementSheet: View {
+    @EnvironmentObject var state: AppState
+    @Environment(\.dismiss) var dismiss
+    @State private var kind = "character"
+    @State private var name = ""
+    @State private var trigger = ""
+    @State private var prompt = ""
+    @State private var sim = 0.8
+    @State private var useSim = false
+    @State private var picked: (Data, String)?
+    let kinds = ["character", "wardrobe", "prop", "environment", "styleframe"]
+    func label(_ k: String) -> String { k == "character" ? "角色" : assetMeta(k).0 }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("新建元素").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.ink)
+            Picker("类型", selection: $kind) {
+                ForEach(kinds, id: \.self) { Text(label($0)).tag($0) }
+            }.pickerStyle(.menu).tint(Theme.accent)
+            DarkField(placeholder: "名称", text: $name)
+            if kind == "character" {
+                DarkField(placeholder: "触发词(LoRA/提示用)", text: $trigger)
+                Toggle(isOn: $useSim) { Text("一致性相似度阈值 \(useSim ? String(format: "%.2f", sim) : "")").font(.system(size: 12)).foregroundStyle(Theme.inkSoft) }
+                if useSim { Slider(value: $sim, in: 0.5...0.99).tint(Theme.accent) }
+            } else {
+                DarkField(placeholder: "描述 / prompt", text: $prompt)
+            }
+            HStack(spacing: 8) {
+                Button { picked = pickImageData() } label: { Label("选择参考图", systemImage: "photo.badge.plus") }
+                    .buttonStyle(.bordered).tint(Theme.inkSoft)
+                if let p = picked { Text(p.1).font(.system(size: 11)).foregroundStyle(Theme.inkSoft).lineLimit(1) }
+            }
+            HStack {
+                Spacer()
+                Button("取消") { dismiss() }
+                Button("创建") {
+                    let k = kind, n = name, t = trigger, pr = prompt
+                    let s: Double? = (k == "character" && useSim) ? sim : nil
+                    let img = picked
+                    Task { await state.newElement(kind: k, name: n, trigger: t, prompt: pr, similarity: s, image: img); dismiss() }
+                }.buttonStyle(.borderedProminent).tint(Theme.accent).disabled(name.isEmpty)
+            }
+        }.padding(20).frame(width: 420).background(Theme.bg)
+    }
+}
+
 // MARK: - 通用小组件
 
 struct DarkField: View {
@@ -393,12 +449,14 @@ struct ProductionBoard: View {
 // Character Bible + 资产 横向条
 struct BibleStrip: View {
     @EnvironmentObject var state: AppState
+    @State private var showNew = false
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 SectionLabel(icon: "person.2.crop.square.stack", text: "Character Bible / 资产")
                 Spacer()
-                Text("一致性锚点").font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
+                Button { showNew = true } label: { Label("新建", systemImage: "plus").font(.system(size: 12)) }
+                    .buttonStyle(.plain).foregroundStyle(Theme.accent)
             }
             if state.characters.isEmpty && state.assets.isEmpty {
                 Text("暂无角色/资产。生成短片或让 Agent 备齐后,会自动进入档案。")
@@ -416,6 +474,7 @@ struct BibleStrip: View {
                 }
             }
         }.card()
+        .sheet(isPresented: $showNew) { NewElementSheet() }
     }
     func chip(_ path: String?, _ name: String, _ tag: String, _ icon: String, _ tap: @escaping () -> Void) -> some View {
         Button(action: tap) {
@@ -579,19 +638,54 @@ struct CharacterDetail: View {
                         HStack(spacing: 10) { ForEach(f, id: \.self) { Thumb(path: $0, size: CGSize(width: 180, height: 240), icon: "person") } }
                     }
                 } else { Text("暂无定稿图").font(.system(size: 12)).foregroundStyle(Theme.inkSoft) }
-                HStack(spacing: 8) {
-                    if let t = c.trigger, !t.isEmpty { Pill(text: "trigger: \(t)", color: Theme.accent) }
-                    Pill(text: c.lora == nil ? "未训练 LoRA" : "LoRA ✓", color: c.lora == nil ? Theme.inkSoft : .green)
-                }
-                // 一致性:被哪些镜头引用
-                if !refs.isEmpty {
+            }.card()
+            IdentityLockCard(c: c).id(c.id)
+            // 一致性:被哪些镜头引用 + 一键重生成
+            VStack(alignment: .leading, spacing: 6) {
+                SectionLabel(icon: "link", text: "一致性 · 被引用")
+                if refs.isEmpty {
+                    Text("尚无镜头引用此角色。").font(.system(size: 12)).foregroundStyle(Theme.inkSoft)
+                } else {
                     HStack(spacing: 5) {
-                        Text("被引用").font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
-                        ForEach(refs, id: \.self) { Text("镜 \($0)").font(.system(size: 10)).padding(.horizontal, 6).padding(.vertical, 1).background(Theme.surfaceHi, in: Capsule()).foregroundStyle(Theme.inkSoft) }
+                        ForEach(refs, id: \.self) { Text("镜 \($0)").font(.system(size: 11)).padding(.horizontal, 7).padding(.vertical, 2).background(Theme.surfaceHi, in: Capsule()).foregroundStyle(Theme.inkSoft) }
+                        Spacer()
+                        Button { } label: { Label("重生成受影响镜头", systemImage: "arrow.triangle.2.circlepath").font(.system(size: 11)) }
+                            .buttonStyle(.plain).foregroundStyle(Theme.inkSoft).disabled(true).help("待接入(⑤/⑥)")
                     }
                 }
             }.card()
         }
+    }
+}
+
+// 身份锁定卡(可编辑:触发词 / 相似度阈值 / LoRA),改动经 op 入历史
+struct IdentityLockCard: View {
+    @EnvironmentObject var state: AppState
+    let c: Character
+    @State private var trigger: String
+    @State private var sim: Double
+    @State private var useSim: Bool
+    init(c: Character) {
+        self.c = c
+        _trigger = State(initialValue: c.trigger ?? "")
+        _sim = State(initialValue: c.similarity ?? 0.85)
+        _useSim = State(initialValue: c.similarity != nil)
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            SectionLabel(icon: "lock.shield", text: "身份锁定卡")
+            DarkField(placeholder: "触发词", text: $trigger)
+            Toggle(isOn: $useSim) { Text("一致性相似度阈值 \(useSim ? String(format: "%.2f", sim) : "—")").font(.system(size: 12)).foregroundStyle(Theme.inkSoft) }
+            if useSim { Slider(value: $sim, in: 0.5...0.99).tint(Theme.accent) }
+            HStack {
+                Pill(text: c.lora == nil ? "未训练 LoRA" : "LoRA ✓", color: c.lora == nil ? Theme.inkSoft : .green)
+                Text(c.source == "image" ? "来源:参考图" : "来源:文本").font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
+                Spacer()
+                Button { Task { await state.updateCharacter(c.id, trigger: trigger, similarity: useSim ? sim : nil) } } label: {
+                    Text("保存").font(.system(size: 12, weight: .semibold))
+                }.buttonStyle(.borderedProminent).tint(Theme.accent)
+            }
+        }.card()
     }
 }
 

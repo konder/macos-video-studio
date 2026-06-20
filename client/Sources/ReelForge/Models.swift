@@ -57,6 +57,7 @@ struct Character: Codable, Identifiable, Hashable {
     let finals: [String]?
     let trigger: String?
     let lora: String?
+    let similarity: Double?
 }
 
 struct Asset: Codable, Identifiable, Hashable {

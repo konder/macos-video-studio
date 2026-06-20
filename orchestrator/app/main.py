@@ -11,7 +11,7 @@ from __future__ import annotations
 import os
 import time
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -212,6 +212,17 @@ def build_shot_graph(name: str, shot_id: str, task: str = "keyframe_edit"):
     shot["graph"] = ir
     store._write(doc)
     return {"ok": True, "task": task, "graph": ir}
+
+
+@app.post("/projects/{name}/upload")
+async def upload_asset(name: str, request: Request, filename: str = "asset.png"):
+    """上传参考图/定稿图到项目 assets/(原始字节 body,免 python-multipart 依赖)。
+    返回项目内相对路径,供 create_character/create_asset 的 finals 引用。"""
+    data = await request.body()
+    if not data:
+        raise HTTPException(400, "空文件")
+    path = _store(name).save_asset(data, filename)
+    return {"ok": True, "path": path}
 
 
 @app.get("/projects/{name}/state")

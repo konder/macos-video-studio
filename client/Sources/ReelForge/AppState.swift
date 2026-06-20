@@ -144,6 +144,41 @@ final class AppState: ObservableObject {
         } catch { chatLog.append("❌ 选片失败: \(error.localizedDescription)") }
     }
 
+    private func shortID(_ prefix: String) -> String { prefix + "_" + UUID().uuidString.replacingOccurrences(of: "-", with: "").prefix(8).lowercased() }
+
+    /// 新建角色或资产(经 op + 历史)。kind="character" 或资产类型(wardrobe/prop/environment/styleframe)。
+    func newElement(kind: String, name: String, trigger: String, prompt: String,
+                    similarity: Double?, image: (Data, String)?) async {
+        busy = true; activity = "新建\(kind=="character" ? "角色" : "资产")…"; defer { busy = false; activity = "" }
+        do {
+            var finals: [String] = []
+            if let (data, fn) = image {
+                let p = try await api.uploadImage(project: project, data: data, filename: fn)
+                if !p.isEmpty { finals = [p] }
+            }
+            var op: [String: Any]
+            if kind == "character" {
+                op = ["op": "create_character", "id": shortID("char"), "name": name,
+                      "source": "text", "finals": finals, "trigger": trigger]
+                if let s = similarity { op["similarity"] = s }
+            } else {
+                op = ["op": "create_asset", "id": shortID(String(kind.prefix(4))), "type": kind,
+                      "name": name, "prompt": prompt, "finals": finals]
+            }
+            try await api.submitChange(project: project, ops: [op], author: "human",
+                                       rationale: "新建\(kind=="character" ? "角色" : "资产") \(name)")
+            await loadDetail()
+        } catch { chatLog.append("❌ 新建失败: \(error.localizedDescription)") }
+    }
+
+    /// 编辑角色身份档案(trigger/相似度阈值/LoRA),经 op + 历史。
+    func updateCharacter(_ id: String, trigger: String, similarity: Double?) async {
+        var ops: [[String: Any]] = [["op": "set_character_field", "id": id, "field": "trigger", "value": trigger]]
+        if let s = similarity { ops.append(["op": "set_character_field", "id": id, "field": "similarity", "value": s]) }
+        do { try await api.submitChange(project: project, ops: ops, author: "human", rationale: "更新角色档案"); await loadDetail() }
+        catch { chatLog.append("❌ 更新失败: \(error.localizedDescription)") }
+    }
+
     /// 钻进镜头的「生成」任务 → 节点画布(技术层)。
     func openGraph(_ shot: String, task: String = "keyframe_edit") async {
         busy = true; activity = "构建节点图…"; defer { busy = false; activity = "" }

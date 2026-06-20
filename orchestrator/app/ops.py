@@ -127,6 +127,22 @@ def apply_project_ops(doc: dict, ops: list[dict]) -> dict:
             doc.setdefault("assets", []).append({
                 "id": op["id"], "type": op.get("type", "prop"), "name": op.get("name", ""),
                 "prompt": op.get("prompt", ""), "finals": op.get("finals", []), "meta": op.get("meta", {})})
+        elif kind == "set_character_field":   # 身份锁定卡:name/trigger/lora/similarity
+            field = op["field"]
+            if field not in {"name", "trigger", "lora", "similarity"}:
+                raise OpError(f"角色不可改字段: {field}")
+            c = next((c for c in doc.get("characters", []) if c["id"] == op["id"]), None)
+            if c is None:
+                raise OpError(f"未知角色: {op['id']}")
+            c[field] = op["value"]
+        elif kind == "set_asset_field":
+            field = op["field"]
+            if field not in {"name", "prompt", "type"}:
+                raise OpError(f"资产不可改字段: {field}")
+            a = next((a for a in doc.get("assets", []) if a["id"] == op["id"]), None)
+            if a is None:
+                raise OpError(f"未知资产: {op['id']}")
+            a[field] = op["value"]
         elif kind == "set_meta":
             doc.setdefault("meta", {})[op["key"]] = op["value"]
         else:

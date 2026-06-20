@@ -49,6 +49,17 @@ struct API {
     func project(_ name: String) async throws -> ProjectDetail { try await get("projects/\(name)") }
 
     /// 技术层:为镜头某任务实例化 Graph IR(落库 shot.graph)并返回原始图。
+    /// 上传参考图(原始字节),返回项目内相对路径。
+    func uploadImage(project: String, data: Data, filename: String) async throws -> String {
+        let fn = filename.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "asset.png"
+        var req = URLRequest(url: try url("projects/\(project)/upload?filename=\(fn)"))
+        req.httpMethod = "POST"
+        req.httpBody = data
+        let (d, _) = try await URLSession.shared.data(for: req)
+        struct R: Decodable { let path: String? }
+        return (try JSONDecoder().decode(R.self, from: d)).path ?? ""
+    }
+
     func buildGraph(project: String, shot: String, task: String = "keyframe_edit") async throws -> [String: Any] {
         var req = URLRequest(url: try url("projects/\(project)/shots/\(shot)/graph/build?task=\(task)"))
         req.httpMethod = "POST"
