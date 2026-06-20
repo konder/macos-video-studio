@@ -13,6 +13,20 @@ import os
 RECIPE_DIR = os.path.join(os.path.dirname(__file__), "recipes")
 
 
+def asset_prompt(atype: str, prompt: str) -> str:
+    """按资产类型增强 prompt。角色 → 三视角(正/侧/背)无背景定型照。"""
+    if atype == "character":
+        return (f"{prompt}, full-body character turnaround sheet, three views in one image: "
+                "front view, side view and back view of the same character, T-pose, consistent design, "
+                "clean solid white background, no scenery, no props, studio character reference sheet")
+    return prompt
+
+
+def asset_dims(atype: str) -> tuple[int, int]:
+    """角色三视角用宽幅,其余方形。"""
+    return (1536, 768) if atype == "character" else (1024, 1024)
+
+
 class RecipeRegistry:
     def __init__(self) -> None:
         self.recipes: dict[str, dict] = {}

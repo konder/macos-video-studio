@@ -195,7 +195,10 @@ def dispatch(name: str, args: dict, ctx: Context) -> str:
         prompt = args.get("prompt") or aname
         is_char = atype == "character"
         aid = _nid("char" if is_char else atype[:4])
-        ir = ctx.recipes.instantiate("char_concept", {"prompt": prompt, "seed": 42})
+        from .recipes import asset_dims, asset_prompt
+        w, h = asset_dims(atype)
+        ir = ctx.recipes.instantiate("char_concept", {
+            "prompt": asset_prompt(atype, prompt), "width": w, "height": h, "seed": 42})
         # 1) 先建出资产(finals 空 + 已挂流程)→ 立刻出现在左侧树
         create_op = {"op": "create_character" if is_char else "create_asset", "id": aid,
                      "name": aname, "prompt": prompt, "finals": [], "graph": ir}

@@ -106,10 +106,10 @@ struct API {
         let obj = (try JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
         return obj["graph"] as? [String: Any] ?? [:]
     }
-    func regenerateAsset(project: String, id: String) async throws -> String {
-        struct E: Encodable {}
+    func regenerateAsset(project: String, id: String, prompt: String?) async throws -> String {
+        struct In: Encodable { let prompt: String? }
         struct R: Decodable { let job_id: String? }
-        let r: R = try await post("projects/\(project)/assets/\(id)/regenerate", E())
+        let r: R = try await post("projects/\(project)/assets/\(id)/regenerate", In(prompt: prompt))
         return r.job_id ?? ""
     }
 

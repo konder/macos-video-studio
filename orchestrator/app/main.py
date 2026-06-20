@@ -445,17 +445,20 @@ def generate_asset(name: str, body: AssetGenIn):
     实例化的图作为该资产的生成流程(asset.graph)落库,产物入 finals。异步作业。"""
     if not body.prompt.strip():
         raise HTTPException(400, "prompt 不能为空")
+    from .recipes import asset_dims, asset_prompt
     store = _store(name)
     comfy = _registry.route("edit" if body.ref_path else "txt2img").client
-    # 1) 实例化生成流程(有参考图→编辑流程,无→文生图)。参考图先传到 ComfyUI input。
+    # 1) 实例化生成流程(有参考图→编辑流程,无→文生图)。角色 prompt 增强为三视角白底。
     from .pipeline import _upload
     if body.ref_path:
         ref_name = _upload(comfy, body.ref_path)
         ir = _recipes.instantiate("keyframe_edit", {
-            "input_image": ref_name, "prompt": body.prompt, "seed": 42,
+            "input_image": ref_name, "prompt": asset_prompt(body.atype, body.prompt), "seed": 42,
             "filename_prefix": f"asset_{body.atype}"})
     else:
-        ir = _recipes.instantiate("char_concept", {"prompt": body.prompt, "seed": 42})
+        w, h = asset_dims(body.atype)
+        ir = _recipes.instantiate("char_concept", {
+            "prompt": asset_prompt(body.atype, body.prompt), "width": w, "height": h, "seed": 42})
     # 2) 先建出资产(finals 空 + 已挂流程)→ 立刻出现在左侧树(create-first)
     is_char = body.atype == "character"
     aid = _nid("char" if is_char else body.atype[:4])
@@ -505,9 +508,15 @@ def get_asset_graph(name: str, asset_id: str):
     return {"ok": True, "graph": ent.get("graph") or {"nodes": {}}}
 
 
+class RegenIn(BaseModel):
+    prompt: str | None = None   # 给了就用(改词重生成)并保存;不给则沿用现有流程/提示词
+
+
 @app.post("/projects/{name}/assets/{asset_id}/regenerate")
-def regenerate_asset(name: str, asset_id: str):
-    """按资产当前(可能已被编辑过的)生成流程重新出图,产物更新到 finals(经 op 入历史)。"""
+def regenerate_asset(name: str, asset_id: str, body: RegenIn = RegenIn()):
+    """重新出图。给了 prompt → 按新词(角色含三视角增强)重建流程并保存;否则跑现有流程。
+    产物回填 finals(经 op 入历史)。"""
+    from .recipes import asset_dims, asset_prompt
     store = _store(name)
     doc = store.load()
     is_char = False
@@ -517,15 +526,24 @@ def regenerate_asset(name: str, asset_id: str):
         is_char = ent is not None
     if ent is None:
         raise HTTPException(404, f"未知资产/角色 {asset_id}")
-    if not ent.get("graph"):
-        raise HTTPException(400, "该资产没有可执行的生成流程(纯上传/纯文字)")
+    atype = "character" if is_char else ent.get("type", "prop")
+    new_prompt = (body.prompt or "").strip()
+    use_prompt = bool(new_prompt) or (not ent.get("graph") and bool(ent.get("prompt")))
+    eff_prompt = new_prompt or (ent.get("prompt") or "")
+    if not ent.get("graph") and not eff_prompt:
+        raise HTTPException(400, "该资产没有可执行流程,也没有提示词")
     jid = JOBS.create("asset", name, total=1, message="重新生成…")
-    graph = ent["graph"]
 
     def work():
         JOBS.update(jid, status="running")
         try:
-            comfy = _registry.route("edit").client
+            if use_prompt:
+                w, h = asset_dims(atype)
+                graph = _recipes.instantiate("char_concept", {
+                    "prompt": asset_prompt(atype, eff_prompt), "width": w, "height": h, "seed": 42})
+            else:
+                graph = ent["graph"]
+            comfy = _registry.route("txt2img").client
             errs = validate_ir(graph, comfy.object_info())
             if errs:
                 raise RuntimeError(str(errs))
@@ -533,6 +551,12 @@ def regenerate_asset(name: str, asset_id: str):
             if not res.get("assets"):
                 raise RuntimeError(res.get("error", "无产物"))
             d = store.load()
+            e2 = next((a for a in d.get("assets", []) if a["id"] == asset_id), None) or \
+                next((c for c in d.get("characters", []) if c["id"] == asset_id), None)
+            if use_prompt and e2 is not None:
+                e2["graph"] = graph
+                if new_prompt:
+                    e2["prompt"] = new_prompt
             field_op = "set_character_field" if is_char else "set_asset_field"
             record_change(d, [{"op": field_op, "id": asset_id, "field": "finals", "value": res["assets"]}],
                           author="human", rationale="重新生成资产")

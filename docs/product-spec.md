@@ -69,6 +69,11 @@ ReelForge 本质是一个**视频生成的工作流软件**。把"用 AI 生成�
 2. **文字生成** → 文生图流程(char_concept / Z-Image),产出 1 张图。
 3. **文字 + 参考图生成** → 参考编辑流程(keyframe_edit / Qwen-Image-Edit,参考图=输入),产出 1 张图。
 
+**按类型增强 prompt(recipes.asset_prompt)**:
+- **角色** → prompt 自动增强为「三视角(正/侧/背)同一角色、T-pose、纯白底无背景的角色定型表」,
+  尺寸用宽幅 1536×768(asset_dims)。**保存的是用户原始 prompt**,增强只在实例化流程时拼接。
+- 其余类型暂用原 prompt + 1024×1024。
+
 > **基模取舍(已定)**:编辑类基模必须有输入图,故"删参考图退化为文生图"在**最小实现里由
 > "创建时是否给参考图"决定走哪条预设流程**(给=编辑流程,不给=文生流程);技术层手动删节点到跑不通时
 > validate 会报错(用户的编辑权,符合对称原则)。
@@ -93,8 +98,15 @@ ReelForge 本质是一个**视频生成的工作流软件**。把"用 AI 生成�
 - **重新生成**:`POST /projects/{name}/assets/{id}/regenerate` 按当前(可能已编辑)流程重出图,
   更新 finals(op 入历史)。
 - **客户端**:BibleStrip「新建」表单(类型+方式);资产/角色详情「生成流程(节点图)」+「重新生成」按钮。
-- **Agent 也能建资产(对称)**:搭图 Agent 加 `save_asset(atype,name)` 工具,"帮我生成一个角色"→
-  run 出图后登记为资产(进资产库/左侧树),与人用表单同构。
+- **Agent 也能建资产(对称)**:搭图 Agent 用 `create_asset(atype,name,prompt)` 工具,"帮我生成一个角色"→
+  与人用表单同构地走 create-first 流程。
+- **create-first 顺序(已修正)**:创建 = **先建实体(入左侧树,finals 空+已挂流程)→ 执行 → 回填预览**。
+  GUI 表单立即返回 asset_id、实体立现;Agent 路径在 tool_result 时客户端实时刷新树/预览。
+- **提示词保存/展示/改词重生成**:资产存用户原始 prompt;详情页「生成提示词」卡可查看/编辑,
+  「重新生成」按当前(可编辑)prompt 重建流程并保存(`POST /assets/{id}/regenerate {prompt?}`,
+  角色仍套三视角白底增强)。
+- **图片居中放大展示**:资产/角色详情用 BigImage(scaledToFit,不裁剪,~560×320 居中),
+  三视角宽图可完整查看;多图时下方小缩略条。
 - 验证:文字生成 styleframe/prop → finals+graph;asset 目标 set_param(steps 8→6,inverse 正确)→流程更新。
 - 提交:3e09ee4 / ac9073d / 3add626(见 git log)。
 

@@ -146,6 +146,61 @@ struct Thumb: View {
     }
 }
 
+// 居中放大展示一张图(不裁剪,适配显示;角色三视角宽图也能完整看到)
+struct BigImage: View {
+    @EnvironmentObject var state: AppState
+    let path: String?
+    var body: some View {
+        HStack {
+            Spacer(minLength: 0)
+            ZStack {
+                RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.25))
+                if let url = state.mediaURL(path) {
+                    AsyncImage(url: url) { img in img.resizable().scaledToFit() }
+                        placeholder: { ProgressView().controlSize(.small) }
+                } else {
+                    VStack(spacing: 6) {
+                        Image(systemName: "photo").font(.system(size: 34)).foregroundStyle(Theme.inkSoft.opacity(0.5))
+                        Text("生成中…").font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
+                    }
+                }
+            }
+            .frame(maxWidth: 560).frame(height: 320)
+            .clipShape(RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border, lineWidth: 1))
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+// 资产生成提示词:展示 + 编辑 + 按词重新生成 / 进流程节点图
+struct AssetPromptCard: View {
+    @EnvironmentObject var state: AppState
+    let id: String
+    let kind: String          // asset | character
+    @State private var text: String
+    init(id: String, kind: String, prompt: String) {
+        self.id = id; self.kind = kind; _text = State(initialValue: prompt)
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 9) {
+            SectionLabel(icon: "text.quote", text: "生成提示词")
+            if text.isEmpty {
+                Text("此资产无提示词(纯上传)。可在技术层编辑流程。").font(.system(size: 12)).foregroundStyle(Theme.inkSoft)
+            } else {
+                DarkField(placeholder: "生成提示词", text: $text, multiline: true)
+            }
+            HStack(spacing: 8) {
+                Button { Task { await state.openAssetGraph(id, kind: kind) } } label: { Label("生成流程(节点图)", systemImage: "chevron.left.forwardslash.chevron.right").font(.system(size: 12)) }
+                    .buttonStyle(.bordered).tint(Theme.inkSoft)
+                Spacer()
+                Button { Task { await state.regenerateAsset(id, prompt: text.isEmpty ? nil : text) } } label: { Label("重新生成", systemImage: "arrow.triangle.2.circlepath").font(.system(size: 12)) }
+                    .buttonStyle(.borderedProminent).tint(Theme.accent).disabled(state.busy)
+            }
+        }.card()
+    }
+}
+
 // MARK: - 根布局(可折叠左右)
 
 struct ContentView: View {
@@ -677,18 +732,14 @@ struct CharacterDetail: View {
         if let c = state.character(id) {
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel(icon: "person.crop.circle", text: c.name)
-                if let f = c.finals, !f.isEmpty {
+                BigImage(path: c.finals?.first)
+                if let f = c.finals, f.count > 1 {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) { ForEach(f, id: \.self) { Thumb(path: $0, size: CGSize(width: 180, height: 240), icon: "person") } }
+                        HStack(spacing: 8) { ForEach(f, id: \.self) { Thumb(path: $0, size: CGSize(width: 96, height: 72), icon: "person") } }
                     }
-                } else { Text("暂无定稿图").font(.system(size: 12)).foregroundStyle(Theme.inkSoft) }
-                HStack(spacing: 8) {
-                    Button { Task { await state.openAssetGraph(c.id, kind: "character") } } label: { Label("生成流程(节点图)", systemImage: "chevron.left.forwardslash.chevron.right").font(.system(size: 12)) }
-                        .buttonStyle(.bordered).tint(Theme.inkSoft)
-                    Button { Task { await state.regenerateAsset(c.id) } } label: { Label("重新生成", systemImage: "arrow.triangle.2.circlepath").font(.system(size: 12)) }
-                        .buttonStyle(.borderedProminent).tint(Theme.accent).disabled(state.busy)
-                }.padding(.top, 2)
+                }
             }.card()
+            AssetPromptCard(id: c.id, kind: "character", prompt: c.prompt ?? "").id(c.id)
             IdentityLockCard(c: c).id(c.id)
             // 一致性:被哪些镜头引用 + 一键重生成
             VStack(alignment: .leading, spacing: 6) {
@@ -748,19 +799,14 @@ struct AssetDetail: View {
         if let a = state.asset(id) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack { SectionLabel(icon: assetMeta(a.type).1, text: a.name); Pill(text: assetMeta(a.type).0, color: Theme.accent) }
-                if let f = a.finals, !f.isEmpty {
+                BigImage(path: a.finals?.first)
+                if let f = a.finals, f.count > 1 {
                     ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 10) { ForEach(f, id: \.self) { Thumb(path: $0, size: CGSize(width: 200, height: 130)) } }
+                        HStack(spacing: 8) { ForEach(f, id: \.self) { Thumb(path: $0, size: CGSize(width: 110, height: 72)) } }
                     }
-                } else { Text("暂无参考图").font(.system(size: 12)).foregroundStyle(Theme.inkSoft) }
-                if let p = a.prompt, !p.isEmpty { Text(p).font(.system(size: 12)).foregroundStyle(Theme.inkSoft) }
-                HStack(spacing: 8) {
-                    Button { Task { await state.openAssetGraph(a.id, kind: "asset") } } label: { Label("生成流程(节点图)", systemImage: "chevron.left.forwardslash.chevron.right").font(.system(size: 12)) }
-                        .buttonStyle(.bordered).tint(Theme.inkSoft)
-                    Button { Task { await state.regenerateAsset(a.id) } } label: { Label("重新生成", systemImage: "arrow.triangle.2.circlepath").font(.system(size: 12)) }
-                        .buttonStyle(.borderedProminent).tint(Theme.accent).disabled(state.busy)
-                }.padding(.top, 2)
+                }
             }.card()
+            AssetPromptCard(id: a.id, kind: "asset", prompt: a.prompt ?? "").id(a.id)
         }
     }
 }
