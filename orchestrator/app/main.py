@@ -555,8 +555,10 @@ def compose_asset(name: str, body: ComposeIn):
             kf = keyframe_compose(comfy, store, refs, sheet, seed=random.randint(1, 2_000_000_000), prefix=f"card_{aid}")
             if not kf.get("keyframe"):
                 raise RuntimeError(str(kf.get("errors", "无产物")))
+            from .pipeline import strip_bg
+            path = strip_bg(kf["keyframe"])
             d2 = store.load()
-            record_change(d2, [{"op": "set_asset_field", "id": aid, "field": "finals", "value": [kf["keyframe"]]}],
+            record_change(d2, [{"op": "set_asset_field", "id": aid, "field": "finals", "value": [path]}],
                           author="human", rationale="人物卡片完成")
             d2["history"][-1]["ts"] = time.time(); store._write(d2)
             JOBS.update(jid, status="done", message="完成", result={"finals": [kf["keyframe"]]})
