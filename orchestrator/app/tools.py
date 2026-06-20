@@ -192,36 +192,32 @@ def dispatch(name: str, args: dict, ctx: Context) -> str:
         return json.dumps(res, ensure_ascii=False)
 
     if name == "create_asset":
-        # 完整动作:先建实体(入树)→ 实例化流程 → 执行 → 回填预览。每步经 op 入历史(与人同构)。
+        # 完整动作:先建实体(入树)→ 执行(角色=分3次单人全身)→ 回填预览。经 op 入历史(与人同构)。
         atype = args.get("atype", "prop")
         aname = args.get("name") or "未命名资产"
         prompt = args.get("prompt") or aname
         is_char = atype == "character"
         aid = _nid("char" if is_char else atype[:4])
-        from .recipes import asset_dims, asset_prompt
+        from .pipeline import generate_asset_images
+        from .recipes import asset_dims, asset_prompt, character_view_prompts
         w, h = asset_dims(atype)
         style = (ctx.store.load().get("meta") or {}).get("style", "realistic")
-        ir = ctx.recipes.instantiate("char_concept", {
-            "prompt": asset_prompt(atype, prompt, style), "width": w, "height": h,
-            "seed": random.randint(1, 2_000_000_000)})
-        # 1) 先建出资产(finals 空 + 已挂流程)→ 立刻出现在左侧树
+        seed = random.randint(1, 2_000_000_000)
+        repr_prompt = character_view_prompts(prompt, style)[0][1] if is_char else asset_prompt(atype, prompt, style)
+        repr_ir = ctx.recipes.instantiate("char_concept", {"prompt": repr_prompt, "width": w, "height": h, "seed": seed})
         create_op = {"op": "create_character" if is_char else "create_asset", "id": aid,
-                     "name": aname, "prompt": prompt, "finals": [], "graph": ir}
+                     "name": aname, "prompt": prompt, "finals": [], "graph": repr_ir, "width": w, "height": h}
         if not is_char:
             create_op["type"] = atype
         _commit_ctx(ctx, [create_op], f"新建{atype} {aname}")
-        # 2) 执行流程
-        errs = validate_ir(ir, ctx.comfy.object_info())
-        if errs:
-            return json.dumps({"ok": False, "asset_id": aid, "error": f"流程校验失败: {errs}"}, ensure_ascii=False)
-        res = run_ir(ir, ctx.comfy, ctx.store)
-        ctx.last_assets = res.get("assets", []) or []
-        if not ctx.last_assets:
-            return json.dumps({"ok": False, "asset_id": aid, "error": res.get("error", "无产物")}, ensure_ascii=False)
-        # 3) 回填预览(finals)
+        try:
+            finals, _ = generate_asset_images(ctx.comfy, ctx.recipes, ctx.store, atype, prompt, style, w, h, seed)
+        except Exception as e:  # noqa: BLE001
+            return json.dumps({"ok": False, "asset_id": aid, "error": str(e)}, ensure_ascii=False)
+        ctx.last_assets = finals
         field_op = "set_character_field" if is_char else "set_asset_field"
-        _commit_ctx(ctx, [{"op": field_op, "id": aid, "field": "finals", "value": ctx.last_assets}], "更新资产预览")
-        return json.dumps({"ok": True, "asset_id": aid, "finals": ctx.last_assets}, ensure_ascii=False)
+        _commit_ctx(ctx, [{"op": field_op, "id": aid, "field": "finals", "value": finals}], "更新资产预览")
+        return json.dumps({"ok": True, "asset_id": aid, "finals": finals}, ensure_ascii=False)
 
     return f"Error: unknown tool {name}"
 

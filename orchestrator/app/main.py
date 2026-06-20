@@ -438,35 +438,42 @@ class AssetGenIn(BaseModel):
     name: str
     prompt: str
     ref_path: str | None = None   # 项目内参考图路径(已上传);空=纯文生图
+    width: int | None = None
+    height: int | None = None
 
 
 @app.post("/projects/{name}/assets/generate")
 def generate_asset(name: str, body: AssetGenIn):
-    """按预设流程生成资产:有参考图→keyframe_edit(编辑),无→char_concept(文生图)。
-    实例化的图作为该资产的生成流程(asset.graph)落库,产物入 finals。异步作业。"""
+    """create-first:先建出资产(入树)→ 执行生成流程(角色=分3次单人全身)→ 回填 finals。"""
     if not body.prompt.strip():
         raise HTTPException(400, "prompt 不能为空")
-    from .recipes import asset_dims, asset_prompt
+    from .pipeline import _upload, generate_asset_images
+    from .recipes import asset_dims, character_view_prompts
     store = _store(name)
     style = (store.load().get("meta") or {}).get("style", "realistic")
     comfy = _registry.route("edit" if body.ref_path else "txt2img").client
     seed = random.randint(1, 2_000_000_000)
-    # 1) 实例化生成流程(有参考图→编辑流程,无→文生图)。角色 prompt 增强为站姿三视角白底。
-    from .pipeline import _upload
-    if body.ref_path:
-        ref_name = _upload(comfy, body.ref_path)
-        ir = _recipes.instantiate("keyframe_edit", {
-            "input_image": ref_name, "prompt": asset_prompt(body.atype, body.prompt, style), "seed": seed,
-            "filename_prefix": f"asset_{body.atype}"})
-    else:
-        w, h = asset_dims(body.atype)
-        ir = _recipes.instantiate("char_concept", {
-            "prompt": asset_prompt(body.atype, body.prompt, style), "width": w, "height": h, "seed": seed})
-    # 2) 先建出资产(finals 空 + 已挂流程)→ 立刻出现在左侧树(create-first)
+    dw, dh = asset_dims(body.atype)
+    w, h = body.width or dw, body.height or dh
     is_char = body.atype == "character"
+    ref_name = _upload(comfy, body.ref_path) if body.ref_path else None
+    # 代表流程图(create-first 展示用):角色取正面单人图,其余取实际流程
+    if ref_name:
+        from .recipes import asset_prompt
+        repr_ir = _recipes.instantiate("keyframe_edit", {"input_image": ref_name,
+                  "prompt": asset_prompt(body.atype, body.prompt, style), "seed": seed,
+                  "filename_prefix": f"asset_{body.atype}"})
+    elif is_char:
+        repr_ir = _recipes.instantiate("char_concept", {
+            "prompt": character_view_prompts(body.prompt, style)[0][1], "width": w, "height": h, "seed": seed})
+    else:
+        from .recipes import asset_prompt
+        repr_ir = _recipes.instantiate("char_concept", {
+            "prompt": asset_prompt(body.atype, body.prompt, style), "width": w, "height": h, "seed": seed})
     aid = _nid("char" if is_char else body.atype[:4])
     op = {"op": "create_character" if is_char else "create_asset", "id": aid,
-          "name": body.name, "prompt": body.prompt, "finals": [], "graph": ir}
+          "name": body.name, "prompt": body.prompt, "finals": [], "graph": repr_ir,
+          "width": w, "height": h}
     if not is_char:
         op["type"] = body.atype
     d = store.load()
@@ -479,20 +486,14 @@ def generate_asset(name: str, body: AssetGenIn):
     def work():
         JOBS.update(jid, status="running")
         try:
-            errs = validate_ir(ir, comfy.object_info())
-            if errs:
-                raise RuntimeError(str(errs))
-            res = run_ir(ir, comfy, store)
-            if not res.get("assets"):
-                raise RuntimeError(res.get("error", "无产物"))
-            # 3) 回填预览(finals),经 op 入历史
+            finals, _ = generate_asset_images(comfy, _recipes, store, body.atype, body.prompt, style, w, h, seed, ref_name)
             d2 = store.load()
             field_op = "set_character_field" if is_char else "set_asset_field"
-            record_change(d2, [{"op": field_op, "id": aid, "field": "finals", "value": res["assets"]}],
+            record_change(d2, [{"op": field_op, "id": aid, "field": "finals", "value": finals}],
                           author="human", rationale="更新资产预览")
             d2["history"][-1]["ts"] = time.time()
             store._write(d2)
-            JOBS.update(jid, status="done", message="完成", result={"finals": res["assets"]})
+            JOBS.update(jid, status="done", message="完成", result={"finals": finals})
         except Exception as e:  # noqa: BLE001
             JOBS.update(jid, status="error", error=str(e), message=f"失败: {e}")
 
@@ -512,14 +513,16 @@ def get_asset_graph(name: str, asset_id: str):
 
 
 class RegenIn(BaseModel):
-    prompt: str | None = None   # 给了就用(改词重生成)并保存;不给则沿用现有流程/提示词
+    prompt: str | None = None         # 改词重生成(保存)
+    width: int | None = None          # 改尺寸重生成(保存)
+    height: int | None = None
 
 
 @app.post("/projects/{name}/assets/{asset_id}/regenerate")
 def regenerate_asset(name: str, asset_id: str, body: RegenIn = RegenIn()):
-    """重新出图。给了 prompt → 按新词(角色含三视角增强)重建流程并保存;否则跑现有流程。
-    产物回填 finals(经 op 入历史)。"""
-    from .recipes import asset_dims, asset_prompt
+    """重新出图(角色=分3次单人全身)。可改 prompt / 尺寸并保存。回填 finals(op 入历史)。"""
+    from .pipeline import generate_asset_images
+    from .recipes import asset_dims
     store = _store(name)
     doc = store.load()
     is_char = False
@@ -532,46 +535,34 @@ def regenerate_asset(name: str, asset_id: str, body: RegenIn = RegenIn()):
     atype = "character" if is_char else ent.get("type", "prop")
     style = (doc.get("meta") or {}).get("style", "realistic")
     new_prompt = (body.prompt or "").strip()
-    # 有 prompt(原或新)就按词重建(可换风格/改词);否则跑现有流程但换随机 seed 求新变体
     eff_prompt = new_prompt or (ent.get("prompt") or "")
-    use_prompt = bool(eff_prompt)
-    if not ent.get("graph") and not eff_prompt:
-        raise HTTPException(400, "该资产没有可执行流程,也没有提示词")
+    if not eff_prompt:
+        raise HTTPException(400, "该资产没有提示词,无法按词重生成")
+    dw, dh = asset_dims(atype)
+    w = body.width or ent.get("width") or dw
+    h = body.height or ent.get("height") or dh
     seed = random.randint(1, 2_000_000_000)
     jid = JOBS.create("asset", name, total=1, message="重新生成…")
 
     def work():
         JOBS.update(jid, status="running")
         try:
-            if use_prompt:
-                w, h = asset_dims(atype)
-                graph = _recipes.instantiate("char_concept", {
-                    "prompt": asset_prompt(atype, eff_prompt, style), "width": w, "height": h, "seed": seed})
-            else:
-                graph = ent["graph"]
-                for nd in graph.get("nodes", {}).values():   # 换 seed 求新变体
-                    if isinstance(nd.get("inputs"), dict) and "seed" in nd["inputs"]:
-                        nd["inputs"]["seed"] = seed
             comfy = _registry.route("txt2img").client
-            errs = validate_ir(graph, comfy.object_info())
-            if errs:
-                raise RuntimeError(str(errs))
-            res = run_ir(graph, comfy, store)
-            if not res.get("assets"):
-                raise RuntimeError(res.get("error", "无产物"))
+            finals, repr_graph = generate_asset_images(comfy, _recipes, store, atype, eff_prompt, style, w, h, seed)
             d = store.load()
             e2 = next((a for a in d.get("assets", []) if a["id"] == asset_id), None) or \
                 next((c for c in d.get("characters", []) if c["id"] == asset_id), None)
-            if use_prompt and e2 is not None:
-                e2["graph"] = graph
+            if e2 is not None:
+                e2["graph"] = repr_graph
+                e2["width"], e2["height"] = w, h
                 if new_prompt:
                     e2["prompt"] = new_prompt
             field_op = "set_character_field" if is_char else "set_asset_field"
-            record_change(d, [{"op": field_op, "id": asset_id, "field": "finals", "value": res["assets"]}],
+            record_change(d, [{"op": field_op, "id": asset_id, "field": "finals", "value": finals}],
                           author="human", rationale="重新生成资产")
             d["history"][-1]["ts"] = time.time()
             store._write(d)
-            JOBS.update(jid, status="done", message="完成", result={"finals": res["assets"]})
+            JOBS.update(jid, status="done", message="完成", result={"finals": finals})
         except Exception as e:  # noqa: BLE001
             JOBS.update(jid, status="error", error=str(e), message=f"失败: {e}")
 

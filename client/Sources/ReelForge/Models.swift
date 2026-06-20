@@ -69,6 +69,8 @@ struct Character: Codable, Identifiable, Hashable {
     let lora: String?
     let similarity: Double?
     let prompt: String?
+    let width: Int?
+    let height: Int?
 }
 
 struct Asset: Codable, Identifiable, Hashable {
@@ -77,6 +79,8 @@ struct Asset: Codable, Identifiable, Hashable {
     let name: String
     let prompt: String?
     let finals: [String]?
+    let width: Int?
+    let height: Int?
 }
 
 // 统一历史里的一个变更(api-contract:ops[] + author/ts/rationale,带 seq)

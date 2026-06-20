@@ -26,8 +26,27 @@ def asset_prompt(atype: str, prompt: str, style: str = "realistic") -> str:
 
 
 def asset_dims(atype: str) -> tuple[int, int]:
-    """角色三视角用宽幅,其余方形。"""
-    return (1536, 768) if atype == "character" else (1024, 1024)
+    """角色单视=竖幅全身,其余方形。(角色三视=分 3 次各出一张单人全身图)"""
+    return (832, 1216) if atype == "character" else (1024, 1024)
+
+
+def _look(style: str) -> str:
+    return ("anime style, clean cel-shaded illustration" if style == "anime"
+            else "photorealistic, realistic photograph")
+
+
+def character_view_prompts(prompt: str, style: str = "realistic") -> list[tuple[str, str]]:
+    """角色三视角:每个视角一张**单人全身**图(solo,数量严格=1),合起来正好 3 张。
+    关键:不用 'character sheet/turnaround/multiple angles'(那会塞多个人、数量不可控)。"""
+    look = _look(style)
+    base = (f"{prompt}, solo, single person, one character only, full body from head to toe, "
+            "standing, centered, simple light gray background, neutral expression, even lighting, "
+            "8k, highly detailed, masterpiece")
+    return [
+        ("front", f"{look}, full-body front view facing camera, {base}"),
+        ("side", f"{look}, full-body side view profile, {base}"),
+        ("back", f"{look}, full-body back view from behind, {base}"),
+    ]
 
 
 class RecipeRegistry:

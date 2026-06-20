@@ -170,14 +170,50 @@ struct BigImage: View {
     }
 }
 
-// 资产生成提示词:展示 + 编辑 + 按词重新生成 / 进流程节点图
+// 展示资产图集:1 张→大图;多张(角色三视角)→并排
+struct FinalsView: View {
+    @EnvironmentObject var state: AppState
+    let finals: [String]
+    var height: CGFloat = 420
+    var body: some View {
+        if finals.count <= 1 {
+            BigImage(path: finals.first, height: height)
+        } else {
+            HStack(spacing: 8) {
+                ForEach(finals.prefix(4), id: \.self) { p in
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 8).fill(Color.black.opacity(0.25))
+                        if let url = state.mediaURL(p) {
+                            AsyncImage(url: url) { img in img.resizable().scaledToFit() } placeholder: { ProgressView().controlSize(.small) }
+                        }
+                    }
+                    .frame(maxWidth: .infinity).frame(height: height)
+                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border, lineWidth: 1))
+                }
+            }
+        }
+    }
+}
+
+// 资产生成提示词 + 尺寸:展示 + 编辑 + 按词/尺寸重新生成 / 进流程节点图
 struct AssetPromptCard: View {
     @EnvironmentObject var state: AppState
     let id: String
     let kind: String          // asset | character
     @State private var text: String
-    init(id: String, kind: String, prompt: String) {
-        self.id = id; self.kind = kind; _text = State(initialValue: prompt)
+    @State private var wStr: String
+    @State private var hStr: String
+    init(id: String, kind: String, prompt: String, width: Int, height: Int) {
+        self.id = id; self.kind = kind
+        _text = State(initialValue: prompt)
+        _wStr = State(initialValue: String(width)); _hStr = State(initialValue: String(height))
+    }
+    func numField(_ s: Binding<String>) -> some View {
+        TextField("", text: s).textFieldStyle(.plain).font(.system(size: 12, design: .monospaced)).foregroundStyle(Theme.ink)
+            .frame(width: 56).padding(.horizontal, 7).padding(.vertical, 5)
+            .background(RoundedRectangle(cornerRadius: 7).fill(Theme.surface))
+            .overlay(RoundedRectangle(cornerRadius: 7).strokeBorder(Theme.border, lineWidth: 1))
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 9) {
@@ -187,11 +223,18 @@ struct AssetPromptCard: View {
             } else {
                 DarkField(placeholder: "生成提示词", text: $text, multiline: true)
             }
+            HStack(spacing: 6) {
+                Text("尺寸").font(.system(size: 12)).foregroundStyle(Theme.inkSoft)
+                numField($wStr); Text("×").foregroundStyle(Theme.inkSoft); numField($hStr)
+                Text("px").font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
+            }
             HStack(spacing: 8) {
                 Button { Task { await state.openAssetGraph(id, kind: kind) } } label: { Label("生成流程(节点图)", systemImage: "chevron.left.forwardslash.chevron.right").font(.system(size: 12)) }
                     .buttonStyle(.bordered).tint(Theme.inkSoft)
                 Spacer()
-                Button { Task { await state.regenerateAsset(id, prompt: text.isEmpty ? nil : text) } } label: { Label("重新生成", systemImage: "arrow.triangle.2.circlepath").font(.system(size: 12)) }
+                Button {
+                    Task { await state.regenerateAsset(id, prompt: text.isEmpty ? nil : text, width: Int(wStr), height: Int(hStr)) }
+                } label: { Label("重新生成", systemImage: "arrow.triangle.2.circlepath").font(.system(size: 12)) }
                     .buttonStyle(.borderedProminent).tint(Theme.accent).disabled(state.busy)
             }
         }.card()
@@ -729,14 +772,10 @@ struct CharacterDetail: View {
         if let c = state.character(id) {
             VStack(alignment: .leading, spacing: 10) {
                 SectionLabel(icon: "person.crop.circle", text: c.name)
-                BigImage(path: c.finals?.first)
-                if let f = c.finals, f.count > 1 {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) { ForEach(f, id: \.self) { Thumb(path: $0, size: CGSize(width: 96, height: 72), icon: "person") } }
-                    }
-                }
+                FinalsView(finals: c.finals ?? [])
             }.card()
-            AssetPromptCard(id: c.id, kind: "character", prompt: c.prompt ?? "").id(c.id)
+            AssetPromptCard(id: c.id, kind: "character", prompt: c.prompt ?? "",
+                            width: c.width ?? 832, height: c.height ?? 1216).id(c.id)
             IdentityLockCard(c: c).id(c.id)
             // 一致性:被哪些镜头引用 + 一键重生成
             VStack(alignment: .leading, spacing: 6) {
@@ -796,14 +835,10 @@ struct AssetDetail: View {
         if let a = state.asset(id) {
             VStack(alignment: .leading, spacing: 10) {
                 HStack { SectionLabel(icon: assetMeta(a.type).1, text: a.name); Pill(text: assetMeta(a.type).0, color: Theme.accent) }
-                BigImage(path: a.finals?.first)
-                if let f = a.finals, f.count > 1 {
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) { ForEach(f, id: \.self) { Thumb(path: $0, size: CGSize(width: 110, height: 72)) } }
-                    }
-                }
+                FinalsView(finals: a.finals ?? [])
             }.card()
-            AssetPromptCard(id: a.id, kind: "asset", prompt: a.prompt ?? "").id(a.id)
+            AssetPromptCard(id: a.id, kind: "asset", prompt: a.prompt ?? "",
+                            width: a.width ?? 1024, height: a.height ?? 1024).id(a.id)
         }
     }
 }

@@ -145,14 +145,16 @@ def apply_project_ops(doc: dict, ops: list[dict]) -> dict:
                 "id": op["id"], "name": op.get("name", ""), "source": op.get("source", "text"),
                 "finals": op.get("finals", []), "trigger": op.get("trigger", ""),
                 "lora": op.get("lora"), "similarity": op.get("similarity"),
-                "graph": op.get("graph"), "prompt": op.get("prompt", "")})
+                "graph": op.get("graph"), "prompt": op.get("prompt", ""),
+                "width": op.get("width"), "height": op.get("height")})
         elif kind == "create_asset":
             if "id" not in op:
                 raise OpError("create_asset 缺 id")
             doc.setdefault("assets", []).append({
                 "id": op["id"], "type": op.get("type", "prop"), "name": op.get("name", ""),
                 "prompt": op.get("prompt", ""), "finals": op.get("finals", []),
-                "meta": op.get("meta", {}), "graph": op.get("graph")})
+                "meta": op.get("meta", {}), "graph": op.get("graph"),
+                "width": op.get("width"), "height": op.get("height")})
         elif kind == "set_character_field":   # 身份锁定卡:name/trigger/lora/similarity/finals
             field = op["field"]
             if field not in {"name", "trigger", "lora", "similarity", "finals"}:

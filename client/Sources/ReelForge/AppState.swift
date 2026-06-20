@@ -291,11 +291,11 @@ final class AppState: ObservableObject {
         } catch { chatLog.append("❌ 载入流程失败: \(error.localizedDescription)") }
     }
 
-    /// 重新生成资产。给 prompt → 按新词重建流程并保存;不给 → 沿用现有流程。更新 finals(op+历史)。
-    func regenerateAsset(_ id: String, prompt: String? = nil) async {
+    /// 重新生成资产。可改 prompt / 尺寸并保存。更新 finals(op+历史)。
+    func regenerateAsset(_ id: String, prompt: String? = nil, width: Int? = nil, height: Int? = nil) async {
         busy = true; activity = "重新生成…"; defer { busy = false; activity = "" }
         do {
-            let jid = try await api.regenerateAsset(project: project, id: id, prompt: prompt)
+            let jid = try await api.regenerateAsset(project: project, id: id, prompt: prompt, width: width, height: height)
             while true {
                 try await Task.sleep(nanoseconds: 1_500_000_000)
                 let j = try await api.job(jid)

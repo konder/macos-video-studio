@@ -17,6 +17,44 @@ def _upload(comfy, store_path: str) -> str:
     return comfy.upload_image(data, os.path.basename(store_path))
 
 
+def generate_asset_images(comfy, recipes, store, atype, prompt, style, width, height, seed, ref_name=None):
+    """生成资产图集,返回 (finals, 代表流程图)。角色=分 3 次各出一张单人全身图(严格 3 张);
+    有参考图=编辑流程;其余=单张文生图。供 GUI 表单 / Agent / 重生成共用。"""
+    from .recipes import asset_prompt, character_view_prompts
+    oi = comfy.object_info()
+    finals: list[str] = []
+    repr_graph = None
+    if ref_name:
+        ir = recipes.instantiate("keyframe_edit", {
+            "input_image": ref_name, "prompt": asset_prompt(atype, prompt, style),
+            "seed": seed, "filename_prefix": f"asset_{atype}"})
+        errs = validate_ir(ir, oi)
+        if errs:
+            raise RuntimeError(str(errs))
+        finals = run_ir(ir, comfy, store).get("assets", [])
+        repr_graph = ir
+    elif atype == "character":
+        for i, (_label, vp) in enumerate(character_view_prompts(prompt, style)):
+            ir = recipes.instantiate("char_concept", {"prompt": vp, "width": width, "height": height, "seed": seed})
+            errs = validate_ir(ir, oi)
+            if errs:
+                raise RuntimeError(str(errs))
+            finals += run_ir(ir, comfy, store).get("assets", [])
+            if i == 0:
+                repr_graph = ir
+    else:
+        ir = recipes.instantiate("char_concept", {
+            "prompt": asset_prompt(atype, prompt, style), "width": width, "height": height, "seed": seed})
+        errs = validate_ir(ir, oi)
+        if errs:
+            raise RuntimeError(str(errs))
+        finals = run_ir(ir, comfy, store).get("assets", [])
+        repr_graph = ir
+    if not finals:
+        raise RuntimeError("无产物")
+    return finals, repr_graph
+
+
 def train_character_lora(
     registry,
     image_paths: list[str],
