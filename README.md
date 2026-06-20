@@ -42,14 +42,14 @@ Agent、画布直接操作、对话都只是同一份数据的「操作端」，
 | [docs/mockups.md](docs/mockups.md) | 关键界面视觉稿（对话/导演层/技术层/Agent 协同/角色创建/选片/导出 等 9 屏） |
 | [docs/walkthrough.md](docs/walkthrough.md) | **从 0 到 1 交互用例**：空项目 → 角色 → 分镜 → 生成 → 选片 → 导出（含时序图） |
 | [docs/roadmap.md](docs/roadmap.md) | 里程碑、MVP 垂直切片、未决问题 |
-| [docs/native-ui.md](docs/native-ui.md) | macOS 原生 UI 核心问题；**①+④ 协同、②+③ 双层视图已对齐 v0.1**，第三层待讨论 |
-| [docs/open-questions.md](docs/open-questions.md) | **编码就绪度**：还太模糊、需拍板/外部事实才能开工的待定问题 |
-| [docs/env-survey.md](docs/env-survey.md) | 5090 ComfyUI 环境调研清单（A1，交给 agent 执行回填） |
+| [docs/native-ui.md](docs/native-ui.md) | macOS 原生 UI 核心问题；**①–⑥ 全部对齐 v0.1** |
+| [docs/open-questions.md](docs/open-questions.md) | **编码就绪度**：就绪度结论 + 待定问题（A 类全清、D 仅剩 D7 后置）|
+| [docs/env-survey.md](docs/env-survey.md) | 5090 ComfyUI 环境调研清单 + **回填报告 / 解读**（A1 已完成）|
+| [docs/spike-plan.md](docs/spike-plan.md) | **M1 / M2 spike 执行清单**（给内网 agent：搭图 PoC + 一致性验证）|
 
 ## 下一步
 
 1. 完整方案已成形（本仓库）。
-2. 原生 UI：**①+④ Agent×画布协同、②+③ 双层视图（导演层制片管理 → 技术层任务 flow）已对齐 v0.1**
-   （见 [docs/native-ui.md](docs/native-ui.md)）；第三层（反馈信息架构、一致性呈现）待续。
-3. **编码就绪度盘点**见 [docs/open-questions.md](docs/open-questions.md)：先解锁 5090 环境清单、一致性选型、
-   持久化与 IR 保真范围，再从 M1（Orchestrator PoC）起步实现。
+2. 原生 UI：**①–⑥ 全部对齐 v0.1**（Agent×画布协同 / 双层视图 / 反馈 IA / 一致性呈现，见 [docs/native-ui.md](docs/native-ui.md)）。
+3. **就绪度：可以开始 M1 编码**（[docs/open-questions.md](docs/open-questions.md) 就绪度结论）。
+   spike 执行清单见 [docs/spike-plan.md](docs/spike-plan.md)，须在能访问 5090 的内网跑；唯一后置 D7（二次元基模）。
