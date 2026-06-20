@@ -90,7 +90,8 @@
 const S={base:'',project:null,projects:[],detail:null,sel:{kind:'overview'},expanded:{p:true,asset:true,shot:true,g_character:true},
   chat:[],busy:false,model:'',backends:[],tab:'chat',graph:null,selNode:null};
 const TYPES={character:{cn:'角色',ico:'user',color:'#7a4ad0',fill:'#efe4ff'},wardrobe:{cn:'服装',ico:'shirt',color:'#2f8a4d',fill:'#e3f5e8'},
-  prop:{cn:'道具',ico:'box',color:'#b8860b',fill:'#f6efdc'},environment:{cn:'场景',ico:'image',color:'#2f6a8a',fill:'#e3eef7'},styleframe:{cn:'风格',ico:'palette',color:'#b0418a',fill:'#f7e6f0'}};
+  prop:{cn:'道具',ico:'box',color:'#b8860b',fill:'#f6efdc'},environment:{cn:'场景',ico:'image',color:'#2f6a8a',fill:'#e3eef7'},styleframe:{cn:'风格',ico:'palette',color:'#b0418a',fill:'#f7e6f0'},
+  composed:{cn:'组合',ico:'layers',color:'#0a84ff',fill:'#dcecff'}};
 
 // ---- 图标(SVG line icons,无 emoji) ----
 const P={
@@ -145,19 +146,20 @@ function selIs(k,id){return S.sel.kind===k&&(id===undefined||S.sel.id===id)&&!S.
 function setSel(kind,id){S.sel={kind,id};S.graph=null;S.selNode=null;render()}
 
 // ---------- TREE ----------
-const FIXED=['wardrobe','prop','environment'];
+const FIXED=['wardrobe','prop','environment','styleframe'];
 const ASSET_GROUPS=[
   {key:'character',cn:'角色',ico:'user',type:'character',sel:{kind:'characters'},list:()=>chars(),leafKind:'character'},
   {key:'wardrobe',cn:'服装',ico:'shirt',type:'wardrobe',sel:{kind:'assetgroup',id:'wardrobe'},list:()=>assets().filter(a=>a.type==='wardrobe'),leafKind:'asset'},
   {key:'prop',cn:'道具',ico:'box',type:'prop',sel:{kind:'assetgroup',id:'prop'},list:()=>assets().filter(a=>a.type==='prop'),leafKind:'asset'},
   {key:'environment',cn:'场景',ico:'image',type:'environment',sel:{kind:'assetgroup',id:'environment'},list:()=>assets().filter(a=>a.type==='environment'),leafKind:'asset'},
-  {key:'custom',cn:'自定义',ico:'palette',type:'__custom__',sel:{kind:'assetgroup',id:'custom'},list:()=>assets().filter(a=>!FIXED.includes(a.type)),leafKind:'asset'},
+  {key:'styleframe',cn:'风格',ico:'palette',type:'styleframe',sel:{kind:'assetgroup',id:'styleframe'},list:()=>assets().filter(a=>a.type==='styleframe'),leafKind:'asset'},
+  {key:'custom',cn:'自定义',ico:'box',type:'__custom__',sel:{kind:'assetgroup',id:'custom'},list:()=>assets().filter(a=>!FIXED.includes(a.type)),leafKind:'asset'},
 ];
 function renderTree(){
   const t=document.getElementById('tree');t.innerHTML='';
   S.projects.forEach(p=>{const cur=p===S.project;
     const r=el(`<div class="treerow ${cur&&selIs('overview')?'sel':''}"><span style="width:10px;color:var(--t4);font-size:10px">${cur?(S.expanded.p?'▾':'▸'):''}</span>${icon('film',15)}<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p)}</span></div>`);
-    r.onclick=()=>cur?(S.expanded.p=!S.expanded.p,renderTree()):selectProject(p);t.appendChild(r);
+    r.onclick=()=>{if(!cur){selectProject(p);return}S.sel={kind:'overview'};S.graph=null;S.expanded.p=true;render();};t.appendChild(r);
     if(cur&&S.expanded.p){
       t.appendChild(leaf(icon('grid',14),'概览','overview',1));
       // 资产(父)→ 子分组(每组行内＋新增)
@@ -249,16 +251,18 @@ function gallery(mode){
     ${thumbBox(x.finals&&x.finals[0],'128px')}<div style="font-size:13px;font-weight:600;margin-top:8px">${esc(x.name)}</div>
     <div style="margin-top:4px">${typeChip(x._t)}</div></div>`).join('');
   const addBtn=addType?`<button class="btn btn-pri" style="padding:6px 11px" onclick="openNewAsset('${addType}')">${icon('plus',14)}新增${title}</button>`:'';
-  return `<div class="row" style="margin:0 2px 14px"><span class="seclabel">${title} · ${list.length}</span><span style="flex:1"></span>${addBtn}</div>
+  const cmpBtn=(mode==='custom'||mode==='asset')?`<button class="btn" style="padding:6px 11px" onclick="openCompose()">${icon('layers',14)}组合资产</button>`:'';
+  return `<div class="row" style="margin:0 2px 14px"><span class="seclabel">${title} · ${list.length}</span><span style="flex:1"></span>${cmpBtn}${addBtn}</div>
     <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px">${cells||'<span class="muted" style="font-size:12px">此分组暂无内容,点右上「新增」或让 Agent 生成。</span>'}</div>`;
 }
 function finalsView(finals,labels){finals=finals||[];
-  if(finals.length<=1){const p=finals[0];return `<div class="media" style="height:440px;border-radius:12px">${p?`<img src="${media(p)}" style="max-width:100%;max-height:100%;object-fit:contain"/>`:'<span class="row" style="gap:6px"><span class="spin"></span>生成中…</span>'}</div>`}
+  if(finals.length<=1){const p=finals[0];return `<div class="media" style="height:440px;border-radius:12px">${p?`<img src="${media(p)}" onclick="viewImage('${media(p)}')" style="max-width:100%;max-height:100%;object-fit:contain;cursor:zoom-in"/>`:'<span class="row" style="gap:6px"><span class="spin"></span>生成中…</span>'}</div>`}
   const caps=labels||['正面','侧面','背面','3/4 侧'];
   return `<div class="row" style="gap:12px;align-items:stretch">${finals.slice(0,4).map((p,i)=>`<div style="flex:1">
-    <div class="media" style="height:300px;border-radius:12px"><img src="${media(p)}" style="max-width:100%;max-height:100%;object-fit:contain"/></div>
+    <div class="media" style="height:300px;border-radius:12px"><img src="${media(p)}" onclick="viewImage('${media(p)}')" style="max-width:100%;max-height:100%;object-fit:contain;cursor:zoom-in"/></div>
     <div class="muted" style="font-size:11px;text-align:center;margin-top:7px">${caps[i]||''}</div></div>`).join('')}</div>`;
 }
+function viewImage(url){if(!url)return;showModal(`<div class="modal-bg" style="background:rgba(0,0,0,.82)" onclick="closeModal()"><img src="${url}" style="max-width:94vw;max-height:94vh;object-fit:contain;border-radius:8px"/></div>`,true);}
 function detail(x){
   if(!x)return '<div class="muted">未找到</div>';
   const isChar=chars().some(c=>c.id===x.id);const t=TYPES[isChar?'character':x.type]||TYPES.prop;
@@ -266,7 +270,8 @@ function detail(x){
   const usedIn=shots().map((s,i)=>({i:i+1,s})).filter(o=>(o.s.refs||[]).includes(x.id));
   let html=`<div class="sec" style="margin-bottom:16px">
     <div class="row" style="margin-bottom:14px"><span style="font-weight:700;font-size:16px">${esc(x.name)}</span>${typeChip(isChar?'character':x.type)}
-      ${usedIn.length?`<span class="chip" style="background:var(--green-fill);color:var(--green)">在 ${usedIn.length} 个镜头使用</span>`:''}</div>
+      ${usedIn.length?`<span class="chip" style="background:var(--green-fill);color:var(--green)">在 ${usedIn.length} 个镜头使用</span>`:''}
+      <span style="flex:1"></span><button class="btn" style="color:#d33;border-color:#f0caca" onclick="delAsset('${x.id}',${isChar},'${esc(x.name)}')">删除</button></div>
     <div class="seclabel" style="margin-bottom:10px">${isChar?'多视角定稿 (turnaround)':'参考图'}</div>${finalsView(x.finals)}</div>`;
   html+=`<div class="sec" style="margin-bottom:16px"><div class="row" style="margin-bottom:10px">${icon('quote',14,'#9a9aa0')}<span class="seclabel">生成提示词</span></div>
     <textarea id="d_prompt" class="inp" rows="3">${esc(x.prompt||'')}</textarea>
@@ -301,7 +306,8 @@ function shotDetail(s){
    <div class="sec" style="margin-bottom:16px"><div class="row" style="gap:8px">
      <button class="btn btn-pri" onclick="genShot('${s.id}','local')" ${s.keyframe?'':'disabled'}>本地生成</button>
      <button class="btn" onclick="genShot('${s.id}','cloud')" ${s.keyframe?'':'disabled'}>云生成</button>
-     <button class="btn" onclick="openGraph('shot','${s.id}')">${icon('code',14)}生成流程</button></div></div>
+     <button class="btn" onclick="openGraph('shot','${s.id}')">${icon('code',14)}生成流程</button>
+     <span style="flex:1"></span><button class="btn" style="color:#d33;border-color:#f0caca" onclick="delShot('${s.id}')">删除镜头</button></div></div>
    <div class="sec"><div class="seclabel">镜次 takes</div>${takes}</div>`;
 }
 function timeline(){const ready=shots().map((s,i)=>({i:i+1,s,t:(s.takes||[]).find(t=>t.id===s.selected_take)})).filter(o=>o.t);
@@ -338,6 +344,10 @@ async function editParam(node,widget,old,text){if(text===old)return;let val=text
 async function regen(id){const prompt=document.getElementById('d_prompt').value;const w=parseInt(document.getElementById('d_w').value)||null,h=parseInt(document.getElementById('d_h').value)||null;
   setBusy(true,'重新生成…');const r=await jpost('/projects/'+S.project+'/assets/'+id+'/regenerate',{prompt,width:w,height:h});await pollAndReload(r.job_id);}
 async function saveTrigger(id){const tr=document.getElementById('d_trigger').value;await jpost('/projects/'+S.project+'/ops',{ops:[{op:'set_character_field',id,field:'trigger',value:tr}],author:'human',rationale:'更新触发词'});await loadDetail();render();}
+async function delAsset(id,isChar,name){if(!confirm('删除「'+name+'」?(产物文件保留)'))return;
+  await jpost('/projects/'+S.project+'/ops',{ops:[{op:isChar?'delete_character':'delete_asset',id}],author:'human',rationale:'删除'+(isChar?'角色':'资产')});S.sel={kind:'overview'};await loadDetail();render();}
+async function delShot(id){if(!confirm('删除该镜头?'))return;
+  await jpost('/projects/'+S.project+'/ops',{ops:[{op:'delete_shot',shot:id}],author:'human',rationale:'删除镜头'});S.sel={kind:'shotsRoot'};await loadDetail();render();}
 async function selectTake(shot,take){await jpost('/projects/'+S.project+'/shots/'+shot+'/select',{take_id:take});await loadDetail();render();}
 async function genShot(shot,backend){setBusy(true,'生成视频…');const r=await jpost('/projects/'+S.project+'/shots/'+shot+'/generate',{backend,confirm:false});
   if(r.needs_confirm){setBusy(false);if(confirm(`云生成预估 ${r.estimate.seconds}s,约 ¥${r.estimate.cost}。确认?`)){setBusy(true,'云生成…');const r2=await jpost('/projects/'+S.project+'/shots/'+shot+'/generate',{backend:'cloud',confirm:true});await pollAndReload(r2.job_id);}return;}await pollAndReload(r.job_id);}
@@ -375,10 +385,30 @@ function openNewAsset(presetType){presetType=presetType||'character';let mode='u
     else{setBusy(true,'生成中…');const r=await jpost('/projects/'+S.project+'/assets/generate',{atype:kind,name,prompt,ref_path:mode==='textref'?refPath:null});await pollAndReload(r.job_id);}};
 }
 async function uploadFile(f){const buf=await f.arrayBuffer();const r=await fetch('/projects/'+S.project+'/upload?filename='+encodeURIComponent(f.name),{method:'POST',body:buf});return (await r.json()).path;}
+// 组合资产:多个资产 → Qwen-edit 合成一张
+function openCompose(){const items=[...chars().map(c=>({...c,_t:'character'})),...assets().map(a=>({...a,_t:a.type}))].filter(x=>x.finals&&x.finals[0]);const picked=[];
+  const body=el(`<div class="pane" style="width:520px;padding:20px;max-height:86vh;overflow:auto">
+    <div style="font-weight:700;font-size:16px;margin-bottom:6px">组合资产</div>
+    <div class="muted" style="font-size:11px;margin-bottom:12px">选 2–3 个资产(角色/服装/道具/场景),用 Qwen-edit 合成一张新图。点选顺序即参考顺序,第 1 个为主体。</div>
+    <div id="cmp_list" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(108px,1fr));gap:8px;margin-bottom:12px"></div>
+    <input id="cmp_name" class="inp" placeholder="新资产名称" style="margin-bottom:8px"/>
+    <textarea id="cmp_prompt" class="inp" rows="2" placeholder="组合说明(可空):如 让 image 1 的角色穿上 image 2 的服装,置于 image 3 的场景" style="margin-bottom:12px"></textarea>
+    <div class="row" style="justify-content:flex-end"><button class="btn" onclick="closeModal()">取消</button><button class="btn btn-pri" id="cmp_go">组合生成</button></div></div>`);
+  const lc=body.querySelector('#cmp_list');
+  items.forEach(x=>{const card=el(`<div style="border:2px solid var(--border);border-radius:10px;padding:6px;cursor:pointer;position:relative">${thumbBox(x.finals[0],'70px')}<div style="font-size:11px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}</div></div>`);
+    const badge=el(`<div class="cmpbadge" style="position:absolute;top:4px;left:4px;width:18px;height:18px;border-radius:50%;background:var(--blue);color:#fff;font-size:11px;display:none;align-items:center;justify-content:center"></div>`);card.appendChild(badge);
+    card.onclick=()=>{const i=picked.indexOf(x.id);if(i>=0){picked.splice(i,1)}else{if(picked.length>=3){alert('最多 3 个');return}picked.push(x.id)}
+      [...lc.children].forEach(c=>{const idx=picked.indexOf(c.__id);c.style.borderColor=idx>=0?'var(--blue)':'var(--border)';const b=c.querySelector('.cmpbadge');if(b){b.style.display=idx>=0?'flex':'none';b.textContent=idx+1}});};
+    card.__id=x.id;lc.appendChild(card);});
+  showModal(body);
+  body.querySelector('#cmp_go').onclick=async()=>{const name=body.querySelector('#cmp_name').value.trim();if(!name)return alert('填名称');if(picked.length<2)return alert('至少选 2 个');
+    const prompt=body.querySelector('#cmp_prompt').value.trim();closeModal();setBusy(true,'组合中…');
+    const r=await jpost('/projects/'+S.project+'/assets/compose',{name,asset_ids:picked,prompt});await pollAndReload(r.job_id);};
+}
 function openSettings(){showModal(`<div class="pane" style="width:420px;padding:20px"><div style="font-weight:700;font-size:16px;margin-bottom:12px">设置 · 服务连接</div>
   <div class="muted" style="font-size:12px;margin-bottom:8px">后端</div>${S.backends.map(b=>`<div class="row" style="margin-bottom:6px"><span class="chip" style="background:${b.latency==='fast'?'var(--green-fill)':'#f6efdc'};color:${b.latency==='fast'?'var(--green)':'#b8860b'}">${esc(b.name)}</span><span class="muted" style="font-size:11px">${(b.caps||[]).join(' · ')}</span></div>`).join('')}
   <div class="row" style="justify-content:flex-end;margin-top:14px"><button class="btn btn-pri" onclick="closeModal()">完成</button></div></div>`);}
-function showModal(c){const m=document.getElementById('modal');m.innerHTML='';const bg=el(`<div class="modal-bg" onclick="if(event.target===this)closeModal()"></div>`);bg.appendChild(typeof c==='string'?el(c):c);m.appendChild(bg);}
+function showModal(c,raw){const m=document.getElementById('modal');m.innerHTML='';if(raw){m.appendChild(typeof c==='string'?el(c):c);return;}const bg=el(`<div class="modal-bg" onclick="if(event.target===this)closeModal()"></div>`);bg.appendChild(typeof c==='string'?el(c):c);m.appendChild(bg);}
 function closeModal(){document.getElementById('modal').innerHTML='';}
 
 // ---------- AGENT / HISTORY ----------

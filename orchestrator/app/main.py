@@ -507,6 +507,62 @@ def generate_asset(name: str, body: AssetGenIn):
     return {"ok": True, "job_id": jid, "asset_id": aid}
 
 
+class ComposeIn(BaseModel):
+    name: str
+    asset_ids: list[str]
+    prompt: str = ""
+
+
+@app.post("/projects/{name}/assets/compose")
+def compose_asset(name: str, body: ComposeIn):
+    """组合资产:把多个资产(角色/服装/道具/场景…)的图作为多图参考,用 Qwen-edit 合成一张
+    新资产(create-first → 异步合成 → 回填)。"""
+    store = _store(name)
+    doc = store.load()
+
+    def ent_of(aid):
+        return next((c for c in doc.get("characters", []) if c["id"] == aid), None) or \
+            next((a for a in doc.get("assets", []) if a["id"] == aid), None)
+    refs = []
+    for aid in body.asset_ids:
+        e = ent_of(aid)
+        f = (e or {}).get("finals") or []
+        if f:
+            refs.append(f[0])
+    if not refs:
+        raise HTTPException(400, "所选资产没有可用图")
+    aid = _nid("cmps")
+    src_names = [ (ent_of(i) or {}).get("name", "") for i in body.asset_ids ]
+    prompt = body.prompt or ("combine the references into one cohesive image, keep each subject's "
+                             "identity, outfit and design consistent; " + ", ".join(filter(None, src_names)))
+    d = store.load()
+    record_change(d, [{"op": "create_asset", "id": aid, "type": "composed", "name": body.name,
+                       "prompt": body.prompt, "finals": [],
+                       "meta": {"composed_from": body.asset_ids}}], author="human", rationale=f"组合资产 {body.name}")
+    d["history"][-1]["ts"] = time.time(); store._write(d)
+
+    jid = JOBS.create("asset", name, total=1, message="组合中…")
+
+    def work():
+        JOBS.update(jid, status="running")
+        try:
+            from .pipeline import keyframe_compose
+            comfy = _registry.route("edit").client
+            kf = keyframe_compose(comfy, store, refs, prompt, seed=random.randint(1, 2_000_000_000), prefix=f"compose_{aid}")
+            if not kf.get("keyframe"):
+                raise RuntimeError(str(kf.get("errors", "无产物")))
+            d2 = store.load()
+            record_change(d2, [{"op": "set_asset_field", "id": aid, "field": "finals", "value": [kf["keyframe"]]}],
+                          author="human", rationale="组合完成")
+            d2["history"][-1]["ts"] = time.time(); store._write(d2)
+            JOBS.update(jid, status="done", message="完成", result={"finals": [kf["keyframe"]]})
+        except Exception as e:  # noqa: BLE001
+            JOBS.update(jid, status="error", error=str(e), message=f"失败: {e}")
+
+    threading.Thread(target=work, daemon=True).start()
+    return {"ok": True, "job_id": jid, "asset_id": aid}
+
+
 @app.get("/projects/{name}/assets/{asset_id}/graph")
 def get_asset_graph(name: str, asset_id: str):
     """取资产/角色的生成流程 IR(技术层节点画布用)。"""
