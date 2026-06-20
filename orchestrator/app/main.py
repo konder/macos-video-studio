@@ -20,6 +20,7 @@ import urllib.request
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from .agent import make_client, run_agent
@@ -36,6 +37,11 @@ from .store import ProjectStore, _nid
 from .tools import Context, run_ir, validate_ir
 
 app = FastAPI(title="ReelForge Orchestrator")
+
+# Web 客户端(零构建 SPA,同源免 CORS):浏览器开 http://<host>:8000/app/
+_WEB_DIR = os.path.join(os.path.dirname(__file__), "web")
+if os.path.isdir(_WEB_DIR):
+    app.mount("/app", StaticFiles(directory=_WEB_DIR, html=True), name="web")
 
 _recipes = RecipeRegistry()
 _registry = BackendRegistry()
