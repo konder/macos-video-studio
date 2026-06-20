@@ -1,0 +1,30 @@
+{
+  "id": "char_turnaround",
+  "title": "角色多视角 / 训练集素材 (Z-Image Turbo)",
+  "stage": "asset",
+  "_note": "为已定稿角色生成多视角/表情图,作角色 LoRA 训练集或角色 Bible 素材。与 char_concept 同基模,正向提示自动追加多视角设定表词。配 char_lora_train(DGX)使用。",
+  "backends": ["local"],
+  "params_schema": {
+    "prompt": {"type": "string"},
+    "width": {"type": "integer", "default": 1024},
+    "height": {"type": "integer", "default": 1024},
+    "steps": {"type": "integer", "default": 8},
+    "cfg": {"type": "number", "default": 1.0},
+    "seed": {"type": "integer", "default": 42},
+    "filename_prefix": {"type": "string", "default": "char_turnaround"}
+  },
+  "graph_template": {
+    "nodes": {
+      "28": {"class_type": "UNETLoader", "inputs": {"unet_name": "z_image_turbo_bf16.safetensors", "weight_dtype": "default"}, "pos": [40, 40]},
+      "30": {"class_type": "CLIPLoader", "inputs": {"clip_name": "qwen_3_4b_fp8_mixed.safetensors", "type": "lumina2", "device": "default"}, "pos": [40, 220]},
+      "29": {"class_type": "VAELoader", "inputs": {"vae_name": "ae.safetensors"}, "pos": [40, 440]},
+      "27": {"class_type": "CLIPTextEncode", "inputs": {"text": "{{prompt}}, character turnaround sheet, multiple views (front, side, back), T-pose, neutral gray background, full body, consistent character", "clip": ["30", 0]}, "pos": [340, 40]},
+      "33": {"class_type": "ConditioningZeroOut", "inputs": {"conditioning": ["27", 0]}, "pos": [340, 320]},
+      "13": {"class_type": "EmptySD3LatentImage", "inputs": {"width": "{{width}}", "height": "{{height}}", "batch_size": 1}, "pos": [340, 480]},
+      "11": {"class_type": "ModelSamplingAuraFlow", "inputs": {"model": ["28", 0], "shift": 3.0}, "pos": [640, 40]},
+      "3": {"class_type": "KSampler", "inputs": {"model": ["11", 0], "positive": ["27", 0], "negative": ["33", 0], "latent_image": ["13", 0], "seed": "{{seed}}", "steps": "{{steps}}", "cfg": "{{cfg}}", "sampler_name": "res_multistep", "scheduler": "simple", "denoise": 1.0}, "pos": [640, 200]},
+      "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["29", 0]}, "pos": [960, 40]},
+      "9": {"class_type": "SaveImage", "inputs": {"images": ["8", 0], "filename_prefix": "{{filename_prefix}}"}, "pos": [1180, 40]}
+    }
+  }
+}

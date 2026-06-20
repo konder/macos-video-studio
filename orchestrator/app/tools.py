@@ -80,6 +80,10 @@ def dispatch(name: str, args: dict, ctx: Context) -> str:
     return f"Error: unknown tool {name}"
 
 
+# 文件名类枚举来自启动时的目录快照,运行时可由 /upload 动态新增 → 不做枚举硬校验。
+_DYNAMIC_FILE_ENUMS = {("LoadImage", "image"), ("LoadImageMask", "image"), ("LoadVideo", "file")}
+
+
 def validate_ir(ir: dict, object_info: dict) -> list[str]:
     """对照 /object_info:节点类型存在、必填项齐、枚举值合法。"""
     errors: list[str] = []
@@ -99,6 +103,10 @@ def validate_ir(ir: dict, object_info: dict) -> list[str]:
             # 枚举:meta 形如 [["euler","dpmpp_2m",...], {...}];连线值是 [id, slot] 列表,跳过
             if (isinstance(meta, list) and meta and isinstance(meta[0], list)
                     and not isinstance(val, list)):
+                # 跳过"运行时动态资产"类文件名枚举:LoadImage 等的文件列表是启动快照，
+                # pipeline 上传的新文件不在其中但 run 时可加载(实测),不应误判。
+                if (ct, iname) in _DYNAMIC_FILE_ENUMS:
+                    continue
                 allowed = meta[0]
                 if val not in allowed:
                     sample = allowed[:6]
@@ -107,13 +115,29 @@ def validate_ir(ir: dict, object_info: dict) -> list[str]:
 
 
 def run_ir(ir: dict, comfy, store) -> dict:
-    """IR -> ComfyUI prompt -> 提交 -> 等待 -> 取回产物。"""
+    """IR -> ComfyUI prompt -> 提交 -> 等待 -> 取回产物(图像 + 视频)。"""
     prompt = ir_to_prompt(ir)
     prompt_id = comfy.submit(prompt)
     history = comfy.wait(prompt_id)
+    status = history.get("status", {})
+    if status.get("status_str") == "error":
+        msg = _history_error(status)
+        return {"prompt_id": prompt_id, "assets": [], "error": msg}
     assets: list[str] = []
+    # SaveImage → outputs[node]["images"]; SaveVideo/VHS → ["videos"]/["gifs"]
     for _node_id, out in history.get("outputs", {}).items():
-        for img in out.get("images", []):
-            data = comfy.download(img)
-            assets.append(store.save_asset(data, img.get("filename", "out.png")))
+        for kind in ("images", "videos", "gifs"):
+            for item in out.get(kind, []):
+                if not isinstance(item, dict) or "filename" not in item:
+                    continue
+                data = comfy.download(item)
+                assets.append(store.save_asset(data, item["filename"]))
     return {"prompt_id": prompt_id, "assets": assets}
+
+
+def _history_error(status: dict) -> str:
+    for m in status.get("messages", []):
+        if m and m[0] == "execution_error":
+            info = m[1]
+            return f"{info.get('node_type')}: {str(info.get('exception_message'))[:200]}"
+    return "execution error"
