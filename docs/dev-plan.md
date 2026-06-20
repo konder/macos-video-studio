@@ -2,11 +2,22 @@
 
 > 基于 [mvp-tech-plan.md](mvp-tech-plan.md) 的可执行切片计划。原则：**后端优先、垂直切片、每片可跑通可验收**；SwiftUI 后置（[roadmap](roadmap.md) M4）。已验证基线见 [spike-summary](spike-summary.md)。
 
-## 已完成（spike 阶段）
+## 已完成
 
-- ✅ M1 Orchestrator 骨架：FastAPI + Agent tool-use（LiteLLM）+ 四工具（search/instantiate/validate/run）+ `char_concept` 配方 + 项目存储骨架（`orchestrator/app`）。
+**spike 阶段**
+- ✅ M1 Orchestrator 骨架：FastAPI + Agent tool-use（LiteLLM）+ 四工具 + `char_concept` 配方 + 项目存储骨架。
 - ✅ 一致性方法验证：Qwen-edit 关键帧 + WAN i2v，e2e 跨镜头成立；模型已下齐。
 - ✅ 算力/路由决策：5090 快速层 + DGX 大显存层 + 云。
+
+**build 阶段 1（一致性管线打通）** ✅ `9805d29`
+- 配方 `keyframe_edit`/`i2v_local`/`char_turnaround`；`pipeline.shot_to_video`(定稿→关键帧→视频 take)；
+  `comfy.upload_image`+视频产物收集；validate 修(动态文件枚举)。实测海边镜头 take 跑通。
+
+**build 阶段 2（多后端路由 + 持久化 + LoRA→DGX）** ✅ `723830d`
+- `backends.py` 注册表+路由(edit/i2v→5090,train→DGX,两后端可达);`pipeline.train_character_lora`→DGX;
+  `project.json` schema(Character Bible/Shots/takes)。
+- **DGX 512² 训练实测成功**(`sks_woman_dgx512`,86MB)——5090 在 512² OOM,**break-256² 经验证**;
+  Z-Image 基模经千兆 LAN 拷至 DGX。
 
 ## 切片里程碑
 
