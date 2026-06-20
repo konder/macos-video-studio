@@ -32,6 +32,51 @@ def strip_bg(store_path: str) -> str:
     return store_path
 
 
+def compose_card(char_finals: list[str], comp_finals: list[str], store, prefix: str = "card") -> str:
+    """人物卡片 = 把角色多视图(左)+ 组件细节图(右)**拼版**到一张索引卡(不重渲染)。
+    角色图为透明 PNG → 贴到浅色卡底;返回保存路径。供视频生成做统一参考。"""
+    from io import BytesIO
+    from PIL import Image
+    pad, H, T, BG = 24, 520, 170, (247, 247, 250, 255)
+
+    def _open(p):
+        try:
+            return Image.open(p).convert("RGBA")
+        except Exception:  # noqa: BLE001
+            return None
+    views = [i for i in (_open(p) for p in char_finals) if i][:3]
+    comps = [i for i in (_open(p) for p in comp_finals) if i]
+    if not views:
+        raise RuntimeError("角色无可用图")
+
+    def fit_h(im, h):
+        return im.resize((max(1, int(im.width * h / im.height)), h))
+
+    def fit_sq(im, s):
+        im2 = im.copy(); im2.thumbnail((s, s))
+        c = Image.new("RGBA", (s, s), (0, 0, 0, 0))
+        c.alpha_composite(im2, ((s - im2.width) // 2, (s - im2.height) // 2))
+        return c
+    vs = [fit_h(v, H) for v in views]
+    left_w = sum(v.width for v in vs) + pad * (len(vs) - 1)
+    cols = 2 if comps else 0
+    rows = (len(comps) + cols - 1) // cols if cols else 0
+    right_w = cols * T + pad * (cols - 1) if cols else 0
+    W = pad + left_w + (pad * 2 + right_w if cols else 0) + pad
+    Hc = pad * 2 + max(H, (rows * T + pad * max(0, rows - 1)) if rows else H)
+    canvas = Image.new("RGBA", (W, Hc), BG)
+    x = pad
+    for v in vs:
+        canvas.alpha_composite(v, (x, pad)); x += v.width + pad
+    if cols:
+        rx = pad + left_w + pad * 2
+        for i, c in enumerate(comps):
+            cc = fit_sq(c, T)
+            canvas.alpha_composite(cc, (rx + (i % cols) * (T + pad), pad + (i // cols) * (T + pad)))
+    buf = BytesIO(); canvas.convert("RGB").save(buf, format="PNG")
+    return store.save_asset(buf.getvalue(), f"{prefix}.png")
+
+
 def generate_asset_images(comfy, recipes, store, atype, prompt, style, width, height, seed, ref_name=None):
     """生成资产图集,返回 (finals, 代表流程图)。角色=分 3 次各出一张单人全身图(严格 3 张);
     有参考图=编辑流程;其余=单张文生图。供 GUI 表单 / Agent / 重生成共用。"""

@@ -510,64 +510,44 @@ class ComposeIn(BaseModel):
 
 @app.post("/projects/{name}/assets/compose")
 def compose_asset(name: str, body: ComposeIn):
-    """组合资产:把多个资产(角色/服装/道具/场景…)的图作为多图参考,用 Qwen-edit 合成一张
-    新资产(create-first → 异步合成 → 回填)。"""
+    """创建人物卡片:把角色三视 + 服装/道具图**拼版**成一张索引卡(供视频生成参考),
+    不重新渲染。asset_ids[0]=角色(主体,取其多视图),其余=组件(各取首图)。"""
     store = _store(name)
     doc = store.load()
 
     def ent_of(aid):
         return next((c for c in doc.get("characters", []) if c["id"] == aid), None) or \
             next((a for a in doc.get("assets", []) if a["id"] == aid), None)
-    refs = []
-    for aid in body.asset_ids:
-        e = ent_of(aid)
-        f = (e or {}).get("finals") or []
+    if not body.asset_ids:
+        raise HTTPException(400, "请至少选一个角色")
+    char = ent_of(body.asset_ids[0])
+    char_finals = (char or {}).get("finals") or []
+    if not char_finals:
+        raise HTTPException(400, "角色还没有图")
+    comp_finals = []
+    for cid in body.asset_ids[1:]:
+        f = (ent_of(cid) or {}).get("finals") or []
         if f:
-            refs.append(f[0])
-    if not refs:
-        raise HTTPException(400, "所选资产没有可用图")
+            comp_finals.append(f[0])
     aid = _nid("cmps")
-    style = (doc.get("meta") or {}).get("style", "realistic")
-    src_names = [ (ent_of(i) or {}).get("name", "") for i in body.asset_ids ]
-    prompt = body.prompt or ("combine the references into one cohesive image, keep each subject's "
-                             "identity, outfit and design consistent; " + ", ".join(filter(None, src_names)))
     d = store.load()
     record_change(d, [{"op": "create_asset", "id": aid, "type": "composed", "name": body.name,
                        "prompt": body.prompt, "finals": [],
-                       "meta": {"composed_from": body.asset_ids}}], author="human", rationale=f"组合资产 {body.name}")
+                       "meta": {"composed_from": body.asset_ids}}], author="human", rationale=f"创建人物卡片 {body.name}")
     d["history"][-1]["ts"] = time.time(); store._write(d)
 
-    jid = JOBS.create("asset", name, total=1, message="组合中…")
+    jid = JOBS.create("card", name, total=1, message="拼版人物卡片…")
 
     def work():
         JOBS.update(jid, status="running")
         try:
-            from .pipeline import keyframe_compose
-            from .recipes import _look
-            comfy = _registry.route("edit").client
-            look = _look(style)
-            seed = random.randint(1, 2_000_000_000)
-            views = [("front", "full-body front view facing camera"),
-                     ("side", "full-body side view profile"),
-                     ("back", "full-body back view from behind")]
-            finals = []
-            for lab, vp in views:
-                vprompt = (f"{look}, {vp}, single person, full body head to toe, standing, "
-                           f"combine the references into one character: keep image 1 person's face and identity, "
-                           f"dressed in and holding the other reference items; consistent character design across views; "
-                           f"plain white background, even lighting. {prompt}")
-                kf = keyframe_compose(comfy, store, refs, vprompt, seed=seed, prefix=f"compose_{aid}_{lab}")
-                if kf.get("keyframe"):
-                    finals.append(kf["keyframe"])
-            if not finals:
-                raise RuntimeError("组合无产物")
-            from .pipeline import strip_bg
-            finals = [strip_bg(f) for f in finals]
+            from .pipeline import compose_card
+            path = compose_card(char_finals[:3], comp_finals, store, prefix=f"card_{aid}")
             d2 = store.load()
-            record_change(d2, [{"op": "set_asset_field", "id": aid, "field": "finals", "value": finals}],
-                          author="human", rationale="组合完成")
+            record_change(d2, [{"op": "set_asset_field", "id": aid, "field": "finals", "value": [path]}],
+                          author="human", rationale="人物卡片完成")
             d2["history"][-1]["ts"] = time.time(); store._write(d2)
-            JOBS.update(jid, status="done", message="完成", result={"finals": finals})
+            JOBS.update(jid, status="done", message="完成", result={"finals": [path]})
         except Exception as e:  # noqa: BLE001
             JOBS.update(jid, status="error", error=str(e), message=f"失败: {e}")
 
