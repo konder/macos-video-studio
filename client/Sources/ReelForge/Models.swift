@@ -33,6 +33,7 @@ struct Shot: Codable, Identifiable, Hashable {
     let takes: [Take]?
 }
 
+struct ProjectsList: Codable { let projects: [String] }
 struct ShotsResponse: Codable { let shots: [Shot] }
 struct RecipesResponse: Codable { let recipes: [Recipe] }
 struct BackendsResponse: Codable { let backends: [Backend] }

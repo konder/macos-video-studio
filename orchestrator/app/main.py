@@ -63,6 +63,17 @@ class ProjectIn(BaseModel):
     name: str
 
 
+@app.get("/projects")
+def list_projects():
+    base = settings.projects_dir
+    names: list[str] = []
+    if os.path.isdir(base):
+        for n in sorted(os.listdir(base)):
+            if os.path.isfile(os.path.join(base, n, "project.json")):
+                names.append(n)
+    return {"projects": names}
+
+
 @app.post("/projects")
 def create_project(body: ProjectIn):
     _store(body.name)

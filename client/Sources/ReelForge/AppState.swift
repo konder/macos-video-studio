@@ -9,6 +9,7 @@ final class AppState: ObservableObject {
     @Published var model = ""
     @Published var backends: [Backend] = []
     @Published var recipes: [Recipe] = []
+    @Published var projects: [String] = []
     @Published var shots: [Shot] = []
     @Published var chatLog: [String] = []
     @Published var busy = false
@@ -44,8 +45,28 @@ final class AppState: ObservableObject {
             model = h.model ?? ""
             backends = try await api.backends()
             recipes = try await api.recipes()
+            await loadProjects()
             await refreshShots()
         } catch { status = "连接失败: \(error.localizedDescription)" }
+    }
+
+    func loadProjects() async {
+        do {
+            projects = try await api.listProjects()
+            if !projects.contains(project), let first = projects.first { project = first }
+        } catch { /* ignore */ }
+    }
+
+    func selectProject(_ name: String) async {
+        project = name
+        await refreshShots()
+    }
+
+    func newProject(_ name: String) async {
+        let n = name.trimmingCharacters(in: .whitespaces)
+        guard !n.isEmpty else { return }
+        do { try await api.createProject(n); await loadProjects(); await selectProject(n) }
+        catch { chatLog.append("❌ 新建项目失败: \(error.localizedDescription)") }
     }
 
     func refreshShots() async {

@@ -35,6 +35,12 @@ struct API {
     }
 
     func health() async throws -> HealthResponse { try await get("healthz") }
+    func listProjects() async throws -> [String] { (try await get("projects") as ProjectsList).projects }
+    func createProject(_ name: String) async throws {
+        struct In: Encodable { let name: String }
+        struct Ok: Decodable { let ok: Bool? }
+        let _: Ok = try await post("projects", In(name: name))
+    }
     func backends() async throws -> [Backend] { (try await get("backends") as BackendsResponse).backends }
     func recipes() async throws -> [Recipe] { (try await get("recipes") as RecipesResponse).recipes }
     func shots(project: String) async throws -> [Shot] {
