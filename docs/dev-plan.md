@@ -34,16 +34,20 @@
 - `project.json` schema 定稿（meta/Character Bible/Shots/takes/每镜头 Graph IR）；存 NAS；断点续跑。
 - **DoD**：同一项目里，普通镜头走 5090 出片、主角 LoRA 训练自动落 DGX；项目可关闭重开续作。
 
-### 阶段 3 — 导演 Agent + 分镜（产品化 e2e）
-- 导演 Agent 工具：`plan_shotlist(script)` / `create_shot` / `assign_assets` / `route_backend`。
-- 拆剧本 → 镜头清单 → 逐镜头自动注入角色档案 → 批量出片。
-- **DoD**：输入一小段剧本 → 自动产出多镜头、角色一致的小样片（e2e 产品化版）。
+### 阶段 3 — 导演 Agent + 分镜（产品化 e2e） ✅ `b0d52ec`+`0a8b9dd`
+- `director.plan_shotlist`(LLM 拆镜,可关联资产)+ `produce_film`(角色档案注入、批量出片)。
+- **导演自动编排资产**:按镜头 `use_assets` 选用,选中走 `keyframe_compose` 组合(实测雪天自动换装)。
+- DoD ✅:一段剧本 → 多镜头一致小样片(`film.mp4`)。
 
-### 阶段 4 — API 收口 + 选片 + 导出工程
-- REST/SSE/WS 按 [api-contract](api-contract.md) 收口（含 op/graph_patch、镜头锁）。
-- 选片：takes 元数据（seed/参数/后端/耗时/花费）+ 选定/回滚/"基于这次再改"。
-- 导出：有序片段 + **FCPXML**（[open-questions D4](open-questions.md)）。
-- **DoD**：整链「资产→分镜→生成→选片→导出工程」后端跑通，可导入 Final Cut/DaVinci。
+### 阶段 3.5 — 资产体系 ✅ `0b187fd`
+- `store` 通用 Asset Library;`pipeline.keyframe_compose` 多图参考组合(角色+服装+背景)。实测换装成功。
+
+### 阶段 4 — API 收口 + op 协同 + 导出工程 ✅ `0a8b9dd`(选片/SSE 待续)
+- `main.py` REST 收口:backends/recipes/object_info/projects/shots/graphs(validate+run)/films/ops/export/chat。
+- `ops.py` op 协议(set_param/add_node/connect/delete_node)= 人介入 workflow 的写入面(无特权写路径)。
+- `export.py` 有序片段 + **FCPXML**(实测 well-formed,Final Cut/DaVinci 可导)。
+- 待续:选片端点(takes 选定/回滚)、`/chat` 改 SSE 流式、镜头锁、op 序列号/历史。
+- DoD(部分达成):整链「资产→分镜→生成→导出」后端跑通;选片/SSE/锁 留作收尾。
 
 ### 阶段 5 — SwiftUI 客户端（[roadmap](roadmap.md) M4）
 导演层（制片管理面）+ 技术层（节点画布）+ Agent×画布协同（[native-ui](native-ui.md) 已对齐 v0.1）。后端无状态化 + 持久化已就位，客户端为纯前端。
