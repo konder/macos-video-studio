@@ -1,18 +1,32 @@
 import Foundation
 
 /// Orchestrator REST 客户端(async/await,URLSession)。
-struct API {
-    var base: URL
+struct APIError: LocalizedError { let msg: String; var errorDescription: String? { msg } }
 
-    init(base: String) { self.base = URL(string: base)! }
+struct API {
+    let baseString: String
+
+    init(base: String) {
+        var s = base.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !s.contains("://") { s = "http://" + s }   // 容错:没写 scheme 自动补
+        while s.hasSuffix("/") { s.removeLast() }
+        self.baseString = s
+    }
+
+    private func url(_ path: String) throws -> URL {
+        guard let u = URL(string: baseString + "/" + path) else {
+            throw APIError(msg: "无效地址: \(baseString)")
+        }
+        return u
+    }
 
     private func get<T: Decodable>(_ path: String) async throws -> T {
-        let (data, _) = try await URLSession.shared.data(from: base.appendingPathComponent(path))
+        let (data, _) = try await URLSession.shared.data(from: try url(path))
         return try JSONDecoder().decode(T.self, from: data)
     }
 
     private func post<B: Encodable, T: Decodable>(_ path: String, _ body: B) async throws -> T {
-        var req = URLRequest(url: base.appendingPathComponent(path))
+        var req = URLRequest(url: try url(path))
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         req.httpBody = try JSONEncoder().encode(body)
