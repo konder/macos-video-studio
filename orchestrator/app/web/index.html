@@ -419,7 +419,7 @@ function openCompose(){
   const cell=(x)=>`<div class="cmpcard" data-id="${x.id}" style="border:2px solid var(--border);border-radius:10px;padding:6px;cursor:pointer;position:relative">${thumbBox(x.finals[0],'66px')}<div style="font-size:11px;margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}</div><div class="cmpck" style="position:absolute;top:4px;right:4px;width:16px;height:16px;border-radius:50%;background:var(--blue);color:#fff;font-size:10px;display:none;align-items:center;justify-content:center">✓</div></div>`;
   const body=el(`<div class="pane" style="width:540px;padding:20px;max-height:86vh;overflow:auto">
     <div style="font-weight:700;font-size:16px;margin-bottom:4px">创建人物卡片</div>
-    <div class="muted" style="font-size:11px;margin-bottom:14px">必选 1 个角色,可再加服装/道具。把角色三视 + 组件细节**拼成一张索引卡**(不重渲染),供后续视频生成统一参考。</div>
+    <div class="muted" style="font-size:11px;margin-bottom:14px">必选 1 个角色,可再加服装/道具(最多 2)。模型会**渲染出一张人物设定卡**(三视+表情+道具细节),供后续视频生成统一参考。</div>
     <div class="seclabel" style="margin-bottom:8px">角色(必选)</div>
     <div id="cmp_chars" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-bottom:14px">${chs.map(cell).join('')||'<span class="muted" style="font-size:12px">还没有角色,先去「角色」组创建</span>'}</div>
     <div class="seclabel" style="margin-bottom:8px">服装 / 道具(可选,最多 2)</div>

@@ -524,11 +524,13 @@ def compose_asset(name: str, body: ComposeIn):
     char_finals = (char or {}).get("finals") or []
     if not char_finals:
         raise HTTPException(400, "角色还没有图")
-    comp_finals = []
-    for cid in body.asset_ids[1:]:
+    style = (doc.get("meta") or {}).get("style", "realistic")
+    refs = [char_finals[0]]                       # 角色主参考(image1)
+    for cid in body.asset_ids[1:]:                # 服装/道具(image2/3,Qwen-edit 至多 3 图)
         f = (ent_of(cid) or {}).get("finals") or []
         if f:
-            comp_finals.append(f[0])
+            refs.append(f[0])
+    refs = refs[:3]
     aid = _nid("cmps")
     d = store.load()
     record_change(d, [{"op": "create_asset", "id": aid, "type": "composed", "name": body.name,
@@ -536,18 +538,28 @@ def compose_asset(name: str, body: ComposeIn):
                        "meta": {"composed_from": body.asset_ids}}], author="human", rationale=f"创建人物卡片 {body.name}")
     d["history"][-1]["ts"] = time.time(); store._write(d)
 
-    jid = JOBS.create("card", name, total=1, message="拼版人物卡片…")
+    jid = JOBS.create("card", name, total=1, message="渲染人物卡片…")
 
     def work():
         JOBS.update(jid, status="running")
         try:
-            from .pipeline import compose_card
-            path = compose_card(char_finals[:3], comp_finals, store, prefix=f"card_{aid}")
+            from .pipeline import keyframe_compose
+            from .recipes import _look
+            comfy = _registry.route("edit").client
+            look = _look(style)
+            sheet = (f"{look}, character design sheet, model reference sheet of one single character; "
+                     f"full-body turnaround in one image: front view, side view and back view of the SAME person; "
+                     f"plus a small row of facial expression headshots; plus separate detail callouts of the equipment, "
+                     f"clothing and props; the character is image 1 wearing and holding the items from the other references; "
+                     f"consistent character design, clean white background, neat concept-art layout, labeled panels. {body.prompt}")
+            kf = keyframe_compose(comfy, store, refs, sheet, seed=random.randint(1, 2_000_000_000), prefix=f"card_{aid}")
+            if not kf.get("keyframe"):
+                raise RuntimeError(str(kf.get("errors", "无产物")))
             d2 = store.load()
-            record_change(d2, [{"op": "set_asset_field", "id": aid, "field": "finals", "value": [path]}],
+            record_change(d2, [{"op": "set_asset_field", "id": aid, "field": "finals", "value": [kf["keyframe"]]}],
                           author="human", rationale="人物卡片完成")
             d2["history"][-1]["ts"] = time.time(); store._write(d2)
-            JOBS.update(jid, status="done", message="完成", result={"finals": [path]})
+            JOBS.update(jid, status="done", message="完成", result={"finals": [kf["keyframe"]]})
         except Exception as e:  # noqa: BLE001
             JOBS.update(jid, status="error", error=str(e), message=f"失败: {e}")
 

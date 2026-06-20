@@ -147,8 +147,7 @@ ReelForge 本质是一个**视频生成的工作流软件**。把"用 AI 生成�
 ### 3.9 组合资产 + 多轮 Agent(2026-06)✅
 - **透明背景**:资产产物经 rembg 后处理统一抠成**透明 PNG**(角色/服装/道具/人物卡片;场景/风格保留背景)。`pipeline.strip_bg`。
 - **「人物卡片」**:原「自定义」组明确为**人物卡片**——角色+服装+道具的聚合体(=组合资产,type=composed);其「＋」直接走组合流程。
-- **人物卡片(原「自定义」)**:= 角色三视 + 服装/道具细节的**拼版索引卡**(单张,`pipeline.compose_card` 用 PIL 拼图,
-  **不重渲染**),供后续视频生成统一参考。`POST /assets/compose`:asset_ids[0]=角色(必选,取多视图),其余=组件(各取首图);
+- **人物卡片(原「自定义」)**:= 由**模型重新渲染**出的一张角色设定卡(character design sheet:三视 turnaround + 表情头像 + 道具/服装细节 callout),`/assets/compose` 用 keyframe_compose(Qwen-edit 多图参考:角色 image1 + 组件 image2/3)渲染一张图,供后续视频生成统一参考。`POST /assets/compose`:asset_ids[0]=角色(必选,取多视图),其余=组件(各取首图);
   type=composed。详情显示「组成(来源资产)」可点回组件。交互:角色单选必选 + 服装/道具可选。
 - **场景移到分镜**:`场景(environment)` 从「资产」移到「分镜」分组下(仍是 asset type=environment,只改归属位置)。
 - **Agent 多轮**:`/chat` 带近 20 轮历史;`list_assets`/`update_asset` 工具让细化走"改已有"而非新建;
