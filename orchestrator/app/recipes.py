@@ -22,12 +22,35 @@ class RecipeRegistry:
             self.recipes[r["id"]] = r
 
     def search(self, intent: str) -> list[dict]:
-        """MVP:返回全部配方的摘要。后续接 docs/agent-system.md §3 的向量/关键词混合检索。"""
-        return [
-            {"id": r["id"], "title": r.get("title"), "stage": r.get("stage"),
-             "params": list(r.get("params_schema", {}).keys()), "note": r.get("_note")}
-            for r in self.recipes.values()
-        ]
+        """关键词检索(agent-system §3 的轻量版):按 intent 词在 id/title/stage/note 上打分排序;
+        无 intent 或全不命中则返回全部(不漏召回)。向量检索后续接。"""
+        def summary(r: dict) -> dict:
+            return {"id": r["id"], "title": r.get("title"), "stage": r.get("stage"),
+                    "params": list(r.get("params_schema", {}).keys()), "note": r.get("_note")}
+
+        items = list(self.recipes.values())
+        low = intent.lower().strip()
+        if not low:
+            return [summary(r) for r in items]
+
+        # 中文无空格:用「配方关键词」逐个在 intent 串里做子串匹配(而非切分 intent)。
+        def score(r: dict) -> int:
+            kws = list(self._STAGE_WORDS.get(r.get("stage", ""), []))
+            kws += [r["id"], r.get("stage", "")]
+            kws += str(r.get("title", "")).lower().replace("(", " ").replace(")", " ").split()
+            return sum(1 for k in kws if k and str(k).lower() in low)
+
+        scored = sorted(((score(r), r) for r in items), key=lambda x: -x[0])
+        hits = [summary(r) for s, r in scored if s > 0]
+        return hits or [summary(r) for r in items]
+
+    # 中文意图 → 阶段关键词(让"视频""定妆""关键帧"等能命中对应 stage)
+    _STAGE_WORDS = {
+        "asset": ["角色", "定妆", "定稿", "人物", "character", "asset", "多视角"],
+        "storyboard": ["关键帧", "分镜", "场景", "keyframe", "compose"],
+        "generate": ["视频", "图生视频", "动起来", "i2v", "video", "成片"],
+        "post": ["超分", "补帧", "upscale", "高清"],
+    }
 
     def instantiate(self, recipe_id: str, params: dict) -> dict:
         """填参 → Graph IR(含 pos)。缺省值取自 params_schema。"""

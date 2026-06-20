@@ -189,6 +189,14 @@ def generate_shot(name: str, shot_id: str, body: GenerateIn):
                 total = round(float((d.get("meta") or {}).get("cost_total", 0)) + est["cost"], 2)
                 record_change(d, [{"op": "set_meta", "key": "cost_total", "value": total}],
                               author="agent", rationale=f"云计费 ¥{est['cost']}")
+                # data-model:云任务在 IR 用虚拟节点表示(由云适配器解释执行,不进 ComfyUI 图)
+                ds = next((s for s in d["shots"] if s["id"] == shot_id), None)
+                if ds is not None:
+                    ds["graph"] = {"nodes": {"cloud1": {"class_type": "CloudVideo", "inputs": {
+                        "provider": "volcano", "model": os.environ.get("VOLCANO_MODEL", "doubao-seedance-1.5-pro"),
+                        "image": keyframe, "prompt": motion, "duration": 5,
+                        "task_id": out.get("task_id"), "video_url": out.get("video_url")},
+                        "pos": [80, 80]}}}
                 d["history"][-1]["ts"] = time.time()
                 store._write(d)
             else:

@@ -1,10 +1,13 @@
-"""Agent 的四个工具(M1):search_recipes / instantiate_recipe / validate / run。
-都是本地执行(client-side),由 Orchestrator 实现并喂回结果。"""
+"""搭图 Agent 工具集(agent-system §4):配方(search/instantiate)+ 图编辑原语
+(set_param/add_node/connect/delete_node)+ estimate + validate + run。
+图编辑原语让 Agent 与人走同一套 op 改同一份 IR(无特权写路径,对称写入)。"""
 from __future__ import annotations
 
 import json
 
+from .estimate import estimate as estimate_task
 from .ir import ir_to_prompt
+from .ops import apply_ops
 
 # 原始 JSON schema 工具定义,直接传给 Anthropic Messages API。
 TOOL_SCHEMAS = [
@@ -28,6 +31,62 @@ TOOL_SCHEMAS = [
             },
             "required": ["id", "params"],
         },
+    },
+    {
+        "name": "set_param",
+        "description": "改当前图某节点的一个 widget 参数(局部改图原语)。附 rationale 说明为什么这么改。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "node": {"type": "string", "description": "节点 id"},
+                "widget": {"type": "string", "description": "参数名,如 steps / cfg / seed"},
+                "value": {"description": "新值(数字/字符串/布尔)"},
+                "rationale": {"type": "string", "description": "为什么这么调"},
+            },
+            "required": ["node", "widget", "value"],
+        },
+    },
+    {
+        "name": "add_node",
+        "description": "新增一个节点(局部改图原语)。type 必须是 /object_info 里真实存在的 class_type。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "node": {"type": "string", "description": "新节点 id(唯一)"},
+                "type": {"type": "string", "description": "class_type"},
+                "inputs": {"type": "object", "description": "初始 widget/输入(可空)"},
+                "pos": {"type": "array", "items": {"type": "number"}, "description": "[x,y] 画布坐标"},
+                "rationale": {"type": "string"},
+            },
+            "required": ["node", "type"],
+        },
+    },
+    {
+        "name": "connect",
+        "description": "连一条边:from_node 的第 from_slot 个输出 → to_node 的 to_input 输入。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "from_node": {"type": "string"}, "from_slot": {"type": "integer"},
+                "to_node": {"type": "string"}, "to_input": {"type": "string"},
+                "rationale": {"type": "string"},
+            },
+            "required": ["from_node", "from_slot", "to_node", "to_input"],
+        },
+    },
+    {
+        "name": "delete_node",
+        "description": "删除当前图的一个节点(局部改图原语)。",
+        "input_schema": {
+            "type": "object",
+            "properties": {"node": {"type": "string"}, "rationale": {"type": "string"}},
+            "required": ["node"],
+        },
+    },
+    {
+        "name": "estimate",
+        "description": "预估当前图的耗时/显存/费用(本地无现金成本;视频任务更慢)。run 前可先看。",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
     },
     {
         "name": "validate",
@@ -61,6 +120,36 @@ def dispatch(name: str, args: dict, ctx: Context) -> str:
         ctx.graph = ctx.recipes.instantiate(args["id"], args.get("params", {}))
         ctx.validated = False  # 新图未校验
         return json.dumps({"ok": True, "nodes": len(ctx.graph["nodes"])}, ensure_ascii=False)
+
+    # ---- 图编辑原语(与人走同一套 op,改 ctx.graph)----
+    if name in ("set_param", "add_node", "connect", "delete_node"):
+        if ctx.graph is None:
+            return "Error: 还没有当前图,请先 instantiate_recipe。"
+        if name == "set_param":
+            op = {"op": "set_param", "node": args["node"], "widget": args["widget"], "value": args["value"]}
+        elif name == "add_node":
+            op = {"op": "add_node", "node": args["node"], "type": args["type"],
+                  "inputs": args.get("inputs", {}), "pos": args.get("pos", [0, 0])}
+        elif name == "connect":
+            op = {"op": "connect", "from": {"node": args["from_node"], "slot": args["from_slot"]},
+                  "to": {"node": args["to_node"], "input": args["to_input"]}}
+        else:
+            op = {"op": "delete_node", "node": args["node"]}
+        try:
+            ctx.graph = apply_ops(ctx.graph, [op])
+        except Exception as e:  # noqa: BLE001
+            return f"Error: {e}"
+        ctx.validated = False   # 改图后需重新 validate 才能 run
+        return json.dumps({"ok": True, "nodes": len(ctx.graph["nodes"]),
+                           "rationale": args.get("rationale", "")}, ensure_ascii=False)
+
+    if name == "estimate":
+        if ctx.graph is None:
+            return "Error: 还没有当前图。"
+        cts = {n.get("class_type", "") for n in ctx.graph["nodes"].values()}
+        is_video = any(("Wan" in c or "WAN" in c or "Video" in c or "I2V" in c or "i2v" in c) for c in cts)
+        return json.dumps(estimate_task("i2v_local" if is_video else "keyframe_edit", "local-5090"),
+                          ensure_ascii=False)
 
     if name == "validate":
         if ctx.graph is None:
