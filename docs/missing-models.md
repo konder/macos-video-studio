@@ -1,8 +1,9 @@
 # 缺失模型清单（5090 做"参考图生视频"等能力，按需补）
 
 > 现状基线见 [env-survey.md](env-survey.md) / [spike-m2-results.md](spike-m2-results.md)。
-> **下载方式**：Orchestrator 只走 HTTP、无权写 ComfyUI 容器的 `models/`；请用 **ComfyUI Manager 的模型下载** 或 **SSH 进容器** 放到对应 `models/<子目录>/`。
-> 大小为粗估，下载前以 HF 实际为准。
+> **下载方式（已更正）**：本会话**可直接 `wget` 下载到 5090 的 ComfyUI models 目录** —— ComfyUI 容器以 `zhangnan` 运行、overlay fs 可写，经 SSH 到 `/proc/<comfyui-pid>/root/comfy/mnt/ComfyUI/models/<子目录>/` 写入即可（host 通 HuggingFace，models 盘余 ~675G）。
+> （早先"无权下载"的说法**有误**：那是因为我去 `ls /opt/comfyui-toolkit/models` 被拒——那是个无关的 host 路径，并非运行中 ComfyUI 实际读取的 models 目录。）
+> 由用户决定下哪些（大小 1–20GB 不等）；大小为粗估，下载前以 HF 实际为准。
 
 ## 已经能做（无需下载）
 - **关键帧→视频 i2v**：WAN 2.2 `ti2v_5B` / `i2v_14B`（已装）。单张角色定稿→视频，身份从首帧保持。**已验证**（5B，704²，3.4s，32s 出片）。
@@ -27,5 +28,5 @@
 1. **lightx2v 4 步 LoRA**（~1.2GB，提速 14B i2v，立竿见影）。
 2. **Wan2.2-Animate**（动作驱动角色视频 = 最像云服务的能力）。
 3. **云 key（即梦/Vidu）** —— 零下载，作为强一致视频的兜底/对照。
-4. **Flux-2 Klein 依赖（~10GB）** —— 若要把"角色 LoRA"做强（DGX 上高分辨率训练）。
+4. **Flux-2 Klein 依赖（~10GB）** —— 若要把"角色 LoRA"做强（高分辨率训练；DGX 带宽受限慢，优先**租云 GPU**）。
 5. IPAdapter/InstantID/PuLID 谨慎（基模适配风险）；Qwen edit 基模(20GB)按需。

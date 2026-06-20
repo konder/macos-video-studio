@@ -17,9 +17,9 @@
 
 ## Track A 实测（角色 LoRA）
 
-1. **训练集 bootstrap**（无 IPAdapter/edit 模型下）：用 **Z-Image img2img 共享潜变量** 从 1 张定稿派生 9 张身份一致的多视角/表情图（denoise 0.50–0.58）。身份保持良好。→ `spike-m2-assets/trainset.png`
+1. **训练集 bootstrap**（无 IPAdapter/edit 模型下）：用 **Z-Image img2img 共享潜变量** 从 1 张定稿派生 9 张身份一致的多视角/表情图（denoise 0.50–0.58）。身份保持良好。→ `spike-assets/m2-trainset.png`
 2. **训练**：`MakeTrainingDataset → TrainLoraNode(Z-Image, 256², rank=8, lr=2e-4, AdamW, 500 步) → SaveLoRA`，耗时 **445s（~7.4 min）**，显存峰值 ~31.3G。
-3. **评测**：LoRA+触发词 在 3 个新场景（咖啡馆 / 霓虹街道 / 办公室）出图，对照「同提示同种子但**无 LoRA**」的基线。→ `spike-m2-assets/lora-vs-baseline.png`、`face-compare.png`
+3. **评测**：LoRA+触发词 在 3 个新场景（咖啡馆 / 霓虹街道 / 办公室）出图，对照「同提示同种子但**无 LoRA**」的基线。→ `spike-assets/m2-lora-vs-baseline.png`、`spike-assets/m2-face-compare.png`
 
 **结果（主观 1–5）**：
 
@@ -48,9 +48,13 @@
 - **更省力的 MVP 一致性路径很可能是「参考条件」而非本地 LoRA**：视频侧用 **云端 reference-to-video（即梦/Vidu）** 或 **本地 WAN Phantom/Animate**；LoRA 留给需要高保真的主角。
 - 建议把"参考条件路线"提为 LoRA 的**并列候选**（已记入 [open-questions.md](open-questions.md) A2）。
 
-## 待办（完成 M2 需要）
+## 链路验证（已补跑，✅）
 
-- [ ] **链路验证**：取最佳 LoRA 关键帧 → **WAN 2.2 i2v 14B** 出 3–5s，看身份是否在视频里保持（spike-plan「关键」项，本轮未跑）。
+取角色关键帧 → **WAN 2.2 5B i2v**（704²，81 帧，~3.4s）→ 身份在 frame 0/27/54/80 **全程保持**，**32s 出片，零训练**。
+→ `spike-assets/m2-i2v-filmstrip.png`、成片 `spike-assets/m2-i2v-char.mp4`。完整结论见 [spike-summary.md](spike-summary.md)。
+
+## 待办
+
 - [ ] 定量身份相似度（装 insightface 算 embedding 距离）。
-- [ ] 若决定走参考条件：补 WAN Phantom/Animate 权重（本地）或接通即梦/Vidu 云节点（M6）。
-- [ ] 若坚持 LoRA 主线：补 Flux-2 Klein 依赖（~8–10GB）+ 评估外部训练器突破 256²。
+- [ ] 增强项按需下到 5090（本会话可直接下）：lightx2v 4 步加速、Wan-Animate（角色动作）；见 [missing-models.md](missing-models.md)。
+- [ ] 若要把 LoRA 做强：补 Flux-2 Klein 依赖换非 distilled 基模（高分辨率训练；DGX 慢，优先租云 GPU）。
