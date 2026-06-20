@@ -11,8 +11,6 @@ enum Sel: Hashable {
     case timeline
 }
 
-enum ViewMode: String { case director = "导演", technical = "技术" }
-
 @MainActor
 final class AppState: ObservableObject {
     @Published var baseURL = "http://10.10.10.2:8000"  // 已部署的 Orchestrator(systemd)
@@ -32,7 +30,7 @@ final class AppState: ObservableObject {
     @Published var expanded: Set<String> = []       // 树展开节点 key
     @Published var leftCollapsed = false
     @Published var rightCollapsed = false
-    @Published var viewMode: ViewMode = .director
+    @Published var activity = ""                     // 全局活动栏当前动作
 
     var characters: [Character] { detail?.characters ?? [] }
     var assets: [Asset] { detail?.assets ?? [] }
@@ -111,7 +109,7 @@ final class AppState: ObservableObject {
     func refreshShots() async { await loadDetail() }
 
     func makeFilm() async {
-        busy = true; defer { busy = false }
+        busy = true; activity = "生成成片中…"; defer { busy = false; activity = "" }
         chatLog.append("🎬 生成成片: \(script)")
         do {
             let r = try await api.makeFilm(FilmRequest(

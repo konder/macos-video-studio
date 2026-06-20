@@ -75,17 +75,6 @@ struct Thumb: View {
     }
 }
 
-struct FieldRow: View {
-    let k: String, v: String
-    var body: some View {
-        HStack(alignment: .top, spacing: 8) {
-            Text(k).font(.system(size: 12, weight: .medium)).foregroundStyle(Theme.inkSoft).frame(width: 92, alignment: .leading)
-            Text(v.isEmpty ? "—" : v).font(.system(size: 12, design: .monospaced)).foregroundStyle(Theme.ink)
-                .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-        }
-    }
-}
-
 // MARK: - 根布局(可折叠左右)
 
 struct ContentView: View {
@@ -94,27 +83,51 @@ struct ContentView: View {
     var vline: some View { Rectangle().fill(Theme.border).frame(width: 1) }
 
     var body: some View {
-        HStack(spacing: 0) {
-            if state.leftCollapsed {
-                CollapsedBar(icon: "sidebar.left", tip: "展开项目") { state.leftCollapsed = false }
-                vline
-            } else {
-                LeftPane(showSettings: $showSettings).frame(width: 252)
-                vline
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                if state.leftCollapsed {
+                    CollapsedBar(icon: "sidebar.left", tip: "展开项目") { state.leftCollapsed = false }
+                    vline
+                } else {
+                    LeftPane(showSettings: $showSettings).frame(width: 252)
+                    vline
+                }
+                MiddlePane().frame(minWidth: 440, maxWidth: .infinity)
+                if state.rightCollapsed {
+                    vline
+                    CollapsedBar(icon: "bubble.left.and.bubble.right", tip: "展开 Agent") { state.rightCollapsed = false }
+                } else {
+                    vline
+                    AgentPane().frame(width: 360)
+                }
             }
-            MiddlePane().frame(minWidth: 440, maxWidth: .infinity)
-            if state.rightCollapsed {
-                vline
-                CollapsedBar(icon: "bubble.left.and.bubble.right", tip: "展开 Agent") { state.rightCollapsed = false }
-            } else {
-                vline
-                AgentPane().frame(width: 360)
-            }
+            Rectangle().fill(Theme.border).frame(height: 1)
+            GlobalActivityBar()
         }
         .background(Theme.bg)
         .preferredColorScheme(.dark)
         .task { await state.connect() }
         .sheet(isPresented: $showSettings) { SettingsSheet() }
+    }
+}
+
+// 全局活动栏(常驻):连接 / 模型 / 当前任务 / 项目。任务队列与费用预估为后续。
+struct GlobalActivityBar: View {
+    @EnvironmentObject var state: AppState
+    var body: some View {
+        HStack(spacing: 10) {
+            Circle().fill(state.status == "已连接" ? .green : .secondary).frame(width: 7, height: 7)
+            Text(state.status).font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
+            if !state.model.isEmpty { Text("·").foregroundStyle(Theme.inkSoft); Text(state.model).font(.system(size: 11)).foregroundStyle(Theme.inkSoft) }
+            Spacer()
+            if state.busy {
+                ProgressView().controlSize(.small).scaleEffect(0.7)
+                Text(state.activity.isEmpty ? "处理中…" : state.activity).font(.system(size: 11)).foregroundStyle(Theme.accent)
+            }
+            Spacer()
+            Text(state.project).font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
+        }
+        .padding(.horizontal, 14).frame(height: 26).background(Theme.sidebar)
     }
 }
 
@@ -268,10 +281,9 @@ struct MiddlePane: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     switch state.selection {
-                    case .overview: OverviewView()
+                    case .overview, .shotsRoot: ProductionBoard(preview: $preview)
                     case .characters: GalleryView(kind: .characters)
                     case .assets: GalleryView(kind: .assets)
-                    case .shotsRoot: GalleryView(kind: .shotsRoot)
                     case .character(let id): CharacterDetail(id: id)
                     case .asset(let id): AssetDetail(id: id)
                     case .shot(let id): ShotDetail(id: id, preview: $preview)
@@ -297,17 +309,9 @@ struct MiddlePane: View {
             }
             Text(breadcrumb).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.ink).lineLimit(1)
             Spacer()
-            if showsViewToggle { ViewModeToggle() }
             Button { state.rightCollapsed.toggle() } label: { Image(systemName: "sidebar.right") }
                 .buttonStyle(.plain).foregroundStyle(state.rightCollapsed ? Theme.inkSoft : Theme.accent).help("Agent")
         }.padding(.horizontal, 14).padding(.vertical, 10)
-    }
-
-    var showsViewToggle: Bool {
-        switch state.selection {
-        case .character, .asset, .shot: return true
-        default: return false
-        }
     }
 
     var breadcrumb: String {
@@ -326,52 +330,154 @@ struct MiddlePane: View {
     }
 }
 
-struct ViewModeToggle: View {
+// ---- 导演层:制片管理面(以分镜头为主轴)----
+
+struct ProductionBoard: View {
     @EnvironmentObject var state: AppState
+    @Binding var preview: IdentURL?
+    @State private var showCompose = false
+
     var body: some View {
-        HStack(spacing: 2) {
-            ForEach([ViewMode.director, .technical], id: \.rawValue) { m in
-                Button { state.viewMode = m } label: {
-                    Text(m.rawValue + "视角").font(.system(size: 12, weight: .medium))
-                        .padding(.horizontal, 10).padding(.vertical, 4)
-                        .background(RoundedRectangle(cornerRadius: 6).fill(state.viewMode == m ? Theme.accent : .clear))
-                        .foregroundStyle(state.viewMode == m ? .white : Theme.inkSoft)
-                }.buttonStyle(.plain)
+        // 顶部:Character Bible / 资产(一致性锚点,共享一等区)
+        BibleStrip()
+
+        // 项目元信息
+        if let m = state.detail?.meta {
+            HStack(spacing: 8) {
+                Pill(text: m.aspect ?? "16:9", color: Theme.inkSoft)
+                Pill(text: m.resolution ?? "1080p", color: Theme.inkSoft)
+                Pill(text: "\(m.fps ?? 24)fps", color: Theme.inkSoft)
+                Pill(text: m.style ?? "realistic", color: Theme.accent)
+                Spacer()
             }
         }
-        .padding(2).background(RoundedRectangle(cornerRadius: 8).fill(Theme.surface))
-        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border, lineWidth: 1))
+
+        // 分镜任务区
+        HStack {
+            SectionLabel(icon: "rectangle.stack", text: "分镜 · 制片(\(state.shots.count))")
+            Spacer()
+            Button { withAnimation { showCompose.toggle() } } label: {
+                Label(showCompose ? "收起" : "新建短片", systemImage: showCompose ? "chevron.up" : "plus")
+                    .font(.system(size: 12))
+            }.buttonStyle(.plain).foregroundStyle(Theme.accent)
+        }
+        if showCompose { ComposeCard() }
+
+        if state.shots.isEmpty {
+            VStack(spacing: 8) {
+                Image(systemName: "rectangle.stack").font(.system(size: 36)).foregroundStyle(Theme.inkSoft.opacity(0.5))
+                Text("还没有分镜").font(.system(size: 14, weight: .medium)).foregroundStyle(Theme.ink)
+                Text("点「新建短片」让导演 Agent 拆镜出片,或在右侧对话。")
+                    .font(.system(size: 12)).foregroundStyle(Theme.inkSoft)
+            }.frame(maxWidth: .infinity, minHeight: 220).padding(20)
+        } else {
+            ForEach(Array(state.shots.enumerated()), id: \.element.id) { i, s in
+                ShotRow(index: i + 1, shot: s, preview: $preview)
+            }
+        }
     }
 }
 
-// ---- 概览 ----
-
-struct OverviewView: View {
+// Character Bible + 资产 横向条
+struct BibleStrip: View {
     @EnvironmentObject var state: AppState
     var body: some View {
-        if let m = state.detail?.meta {
-            VStack(alignment: .leading, spacing: 9) {
-                SectionLabel(icon: "info.circle", text: "项目概览")
-                HStack(spacing: 8) {
-                    Pill(text: m.aspect ?? "16:9", color: Theme.inkSoft)
-                    Pill(text: m.resolution ?? "1080p", color: Theme.inkSoft)
-                    Pill(text: "\(m.fps ?? 24)fps", color: Theme.inkSoft)
-                    Pill(text: m.style ?? "realistic", color: Theme.accent)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                SectionLabel(icon: "person.2.crop.square.stack", text: "Character Bible / 资产")
+                Spacer()
+                Text("一致性锚点").font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
+            }
+            if state.characters.isEmpty && state.assets.isEmpty {
+                Text("暂无角色/资产。生成短片或让 Agent 备齐后,会自动进入档案。")
+                    .font(.system(size: 12)).foregroundStyle(Theme.inkSoft)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 10) {
+                        ForEach(state.characters) { c in
+                            chip(c.finals?.first, c.name, "角色", "person.crop.circle") { state.selection = .character(c.id) }
+                        }
+                        ForEach(state.assets) { a in
+                            chip(a.finals?.first, a.name, assetMeta(a.type).0, assetMeta(a.type).1) { state.selection = .asset(a.id) }
+                        }
+                    }.padding(.vertical, 2)
                 }
-                HStack(spacing: 18) {
-                    stat("角色", state.characters.count)
-                    stat("资产", state.assets.count)
-                    stat("分镜", state.shots.count)
-                }.padding(.top, 4)
-            }.card()
-        }
-        ComposeCard()
+            }
+        }.card()
     }
-    func stat(_ k: String, _ n: Int) -> some View {
-        VStack(spacing: 2) {
-            Text("\(n)").font(.system(size: 22, weight: .bold)).foregroundStyle(Theme.ink)
-            Text(k).font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
+    func chip(_ path: String?, _ name: String, _ tag: String, _ icon: String, _ tap: @escaping () -> Void) -> some View {
+        Button(action: tap) {
+            VStack(spacing: 4) {
+                Thumb(path: path, size: CGSize(width: 84, height: 84), icon: icon)
+                Text(name).font(.system(size: 11)).foregroundStyle(Theme.ink).lineLimit(1).frame(width: 84)
+                Text(tag).font(.system(size: 9)).foregroundStyle(Theme.inkSoft)
+            }
+        }.buttonStyle(.plain)
+    }
+}
+
+// 镜头行:任务流水线(分镜·生成·选片)+ 预览 + 资产依赖
+struct ShotRow: View {
+    @EnvironmentObject var state: AppState
+    let index: Int
+    let shot: Shot
+    @Binding var preview: IdentURL?
+
+    // 流水线状态:0=未,1=进行/部分,2=完成
+    var stStoryboard: Int { (shot.scene_prompt?.isEmpty == false || shot.script?.isEmpty == false) ? 2 : 0 }
+    var stGenerate: Int {
+        if let t = shot.takes, !t.isEmpty { return 2 }
+        if shot.keyframe != nil { return 1 }
+        return 0
+    }
+    var stSelect: Int { shot.selected_take != nil ? 2 : (shot.takes?.isEmpty == false ? 1 : 0) }
+    var selectedTake: Take? { shot.takes?.first { $0.id == shot.selected_take } }
+
+    var body: some View {
+        Button { state.selection = .shot(shot.id) } label: {
+            HStack(alignment: .top, spacing: 12) {
+                Thumb(path: shot.keyframe, size: CGSize(width: 150, height: 86))
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Text("镜 \(index)").font(.system(size: 11, weight: .bold))
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Theme.accent.opacity(0.18), in: Capsule()).foregroundStyle(Theme.accent)
+                        Text(shot.script ?? shot.id).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.ink).lineLimit(1)
+                    }
+                    HStack(spacing: 6) {
+                        stage("分镜", stStoryboard)
+                        stage("生成", stGenerate)
+                        stage("选片", stSelect)
+                    }
+                    if let r = shot.refs, !r.isEmpty {
+                        HStack(spacing: 5) {
+                            Image(systemName: "link").font(.system(size: 9)).foregroundStyle(Theme.inkSoft)
+                            ForEach(r, id: \.self) { id in
+                                Text(state.character(id)?.name ?? id).font(.system(size: 10))
+                                    .padding(.horizontal, 6).padding(.vertical, 1)
+                                    .background(Theme.surfaceHi, in: Capsule()).foregroundStyle(Theme.inkSoft)
+                            }
+                        }
+                    }
+                }
+                Spacer(minLength: 0)
+                if let t = selectedTake, let u = state.mediaURL(t.video) {
+                    Button { preview = IdentURL(url: u) } label: { Image(systemName: "play.circle.fill").font(.system(size: 24)) }
+                        .buttonStyle(.plain).foregroundStyle(Theme.accent)
+                }
+            }.card()
+        }.buttonStyle(.plain)
+    }
+
+    func stage(_ name: String, _ st: Int) -> some View {
+        let color: Color = st == 2 ? .green : (st == 1 ? Theme.accent : Theme.inkSoft.opacity(0.6))
+        let icon = st == 2 ? "checkmark.circle.fill" : (st == 1 ? "circle.dotted" : "circle")
+        return HStack(spacing: 3) {
+            Image(systemName: icon).font(.system(size: 9))
+            Text(name).font(.system(size: 10, weight: .medium))
         }
+        .padding(.horizontal, 7).padding(.vertical, 2)
+        .background(color.opacity(0.14), in: Capsule()).foregroundStyle(color)
     }
 }
 
@@ -449,30 +555,30 @@ struct GalleryView: View {
 struct CharacterDetail: View {
     @EnvironmentObject var state: AppState
     let id: String
+    var refs: [Int] {
+        state.shots.enumerated().compactMap { i, s in (s.refs ?? []).contains(id) ? i + 1 : nil }
+    }
     var body: some View {
         if let c = state.character(id) {
-            if state.viewMode == .director {
-                VStack(alignment: .leading, spacing: 10) {
-                    SectionLabel(icon: "person.crop.circle", text: c.name)
-                    if let f = c.finals, !f.isEmpty {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 10) { ForEach(f, id: \.self) { Thumb(path: $0, size: CGSize(width: 180, height: 240), icon: "person") } }
-                        }
-                    } else { Text("暂无定稿图").font(.system(size: 12)).foregroundStyle(Theme.inkSoft) }
-                    HStack(spacing: 8) {
-                        if let t = c.trigger, !t.isEmpty { Pill(text: "trigger: \(t)", color: Theme.accent) }
-                        Pill(text: c.lora == nil ? "未训练 LoRA" : "LoRA ✓", color: c.lora == nil ? Theme.inkSoft : .green)
+            VStack(alignment: .leading, spacing: 10) {
+                SectionLabel(icon: "person.crop.circle", text: c.name)
+                if let f = c.finals, !f.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) { ForEach(f, id: \.self) { Thumb(path: $0, size: CGSize(width: 180, height: 240), icon: "person") } }
                     }
-                }.card()
-            } else {
-                techCard("角色 · 技术") {
-                    FieldRow(k: "id", v: c.id)
-                    FieldRow(k: "source", v: c.source ?? "")
-                    FieldRow(k: "trigger", v: c.trigger ?? "")
-                    FieldRow(k: "lora", v: c.lora ?? "")
-                    ForEach(Array((c.finals ?? []).enumerated()), id: \.offset) { i, p in FieldRow(k: "finals[\(i)]", v: p) }
+                } else { Text("暂无定稿图").font(.system(size: 12)).foregroundStyle(Theme.inkSoft) }
+                HStack(spacing: 8) {
+                    if let t = c.trigger, !t.isEmpty { Pill(text: "trigger: \(t)", color: Theme.accent) }
+                    Pill(text: c.lora == nil ? "未训练 LoRA" : "LoRA ✓", color: c.lora == nil ? Theme.inkSoft : .green)
                 }
-            }
+                // 一致性:被哪些镜头引用
+                if !refs.isEmpty {
+                    HStack(spacing: 5) {
+                        Text("被引用").font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
+                        ForEach(refs, id: \.self) { Text("镜 \($0)").font(.system(size: 10)).padding(.horizontal, 6).padding(.vertical, 1).background(Theme.surfaceHi, in: Capsule()).foregroundStyle(Theme.inkSoft) }
+                    }
+                }
+            }.card()
         }
     }
 }
@@ -484,24 +590,15 @@ struct AssetDetail: View {
     let id: String
     var body: some View {
         if let a = state.asset(id) {
-            if state.viewMode == .director {
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack { SectionLabel(icon: assetMeta(a.type).1, text: a.name); Pill(text: assetMeta(a.type).0, color: Theme.accent) }
-                    if let f = a.finals, !f.isEmpty {
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 10) { ForEach(f, id: \.self) { Thumb(path: $0, size: CGSize(width: 200, height: 130)) } }
-                        }
-                    } else { Text("暂无参考图").font(.system(size: 12)).foregroundStyle(Theme.inkSoft) }
-                    if let p = a.prompt, !p.isEmpty { Text(p).font(.system(size: 12)).foregroundStyle(Theme.inkSoft) }
-                }.card()
-            } else {
-                techCard("资产 · 技术") {
-                    FieldRow(k: "id", v: a.id)
-                    FieldRow(k: "type", v: a.type)
-                    FieldRow(k: "prompt", v: a.prompt ?? "")
-                    ForEach(Array((a.finals ?? []).enumerated()), id: \.offset) { i, p in FieldRow(k: "finals[\(i)]", v: p) }
-                }
-            }
+            VStack(alignment: .leading, spacing: 10) {
+                HStack { SectionLabel(icon: assetMeta(a.type).1, text: a.name); Pill(text: assetMeta(a.type).0, color: Theme.accent) }
+                if let f = a.finals, !f.isEmpty {
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 10) { ForEach(f, id: \.self) { Thumb(path: $0, size: CGSize(width: 200, height: 130)) } }
+                    }
+                } else { Text("暂无参考图").font(.system(size: 12)).foregroundStyle(Theme.inkSoft) }
+                if let p = a.prompt, !p.isEmpty { Text(p).font(.system(size: 12)).foregroundStyle(Theme.inkSoft) }
+            }.card()
         }
     }
 }
@@ -513,9 +610,7 @@ struct ShotDetail: View {
     let id: String
     @Binding var preview: IdentURL?
     var body: some View {
-        if let s = state.shot(id) {
-            if state.viewMode == .director { director(s) } else { technical(s) }
-        }
+        if let s = state.shot(id) { director(s) }
     }
 
     func director(_ s: Shot) -> some View {
@@ -533,8 +628,26 @@ struct ShotDetail: View {
                 if let sp = s.scene_prompt { labeled("画面 prompt", sp) }
                 if let mp = s.motion_prompt { labeled("运动 prompt", mp) }
             }.card()
+            // 任务 → 钻进技术层(节点图)。阶段B 实现画布,先入口可见。
+            HStack(spacing: 8) {
+                taskChip("生成", "钻进生成任务的节点图(技术层)")
+                Text("点任务进入技术层 flow · 阶段B").font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
+            }
             takesCard(s)
         }
+    }
+
+    func taskChip(_ name: String, _ help: String) -> some View {
+        Button { } label: {
+            HStack(spacing: 5) {
+                Image(systemName: "chevron.left.forwardslash.chevron.right").font(.system(size: 11))
+                Text(name + " · 节点图").font(.system(size: 12, weight: .medium))
+            }
+            .padding(.horizontal, 10).padding(.vertical, 5)
+            .background(RoundedRectangle(cornerRadius: 8).fill(Theme.surface))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border, lineWidth: 1))
+            .foregroundStyle(Theme.inkSoft)
+        }.buttonStyle(.plain).disabled(true).help(help)
     }
 
     func labeled(_ k: String, _ v: String) -> some View {
@@ -566,23 +679,6 @@ struct ShotDetail: View {
                 }
             } else { Text("尚无 take。在右侧让 Agent 出片,或「生成短片」。").font(.system(size: 12)).foregroundStyle(Theme.inkSoft) }
         }.card()
-    }
-
-    func technical(_ s: Shot) -> some View {
-        let recipe = s.takes?.first?.meta?.recipe ?? "keyframe_edit + i2v_local"
-        return techCard("分镜 · 技术(Graph IR)") {
-            FieldRow(k: "id", v: s.id)
-            FieldRow(k: "recipe", v: recipe)
-            FieldRow(k: "refs", v: (s.refs ?? []).joined(separator: ", "))
-            FieldRow(k: "keyframe", v: s.keyframe ?? "")
-            FieldRow(k: "scene", v: s.scene_prompt ?? "")
-            FieldRow(k: "motion", v: s.motion_prompt ?? "")
-            ForEach(Array((s.takes ?? []).enumerated()), id: \.offset) { i, t in
-                FieldRow(k: "take[\(i)]", v: "\(t.video ?? "")  seed=\(t.meta?.seed.map(String.init) ?? "-")")
-            }
-            Text("节点画布(可视化编辑 ComfyUI 图 + op 协议)为下一层,当前展示已落库的图参数。")
-                .font(.system(size: 11)).foregroundStyle(Theme.inkSoft.opacity(0.8)).padding(.top, 4)
-        }
     }
 }
 
@@ -624,14 +720,6 @@ struct TimelineView: View {
             }
         }.card()
     }
-}
-
-@ViewBuilder
-func techCard<C: View>(_ title: String, @ViewBuilder _ content: () -> C) -> some View {
-    VStack(alignment: .leading, spacing: 7) {
-        SectionLabel(icon: "chevron.left.forwardslash.chevron.right", text: title)
-        content()
-    }.card()
 }
 
 // MARK: - 右:Agent
