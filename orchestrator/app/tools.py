@@ -113,7 +113,9 @@ TOOL_SCHEMAS = [
                 "atype": {"type": "string", "enum": ["character", "wardrobe", "prop", "environment", "styleframe"],
                           "description": "资产类型"},
                 "name": {"type": "string", "description": "资产名称(中文友好)"},
-                "prompt": {"type": "string", "description": "外观/内容描述(高质量英文 prompt 更佳)"},
+                "prompt": {"type": "string", "description": "只写身份/外观:年龄性别、面部与发型、服装、道具配饰(英文)。"
+                           "**不要**写姿势/镜头角度/画风/背景/三视角(系统会自动加站姿全身三视角白底等),"
+                           "尤其不要写 sitting / illustration 之类。"},
             },
             "required": ["atype", "name", "prompt"],
         },

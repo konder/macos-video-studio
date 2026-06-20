@@ -150,26 +150,23 @@ struct Thumb: View {
 struct BigImage: View {
     @EnvironmentObject var state: AppState
     let path: String?
+    var height: CGFloat = 460
     var body: some View {
-        HStack {
-            Spacer(minLength: 0)
-            ZStack {
-                RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.25))
-                if let url = state.mediaURL(path) {
-                    AsyncImage(url: url) { img in img.resizable().scaledToFit() }
-                        placeholder: { ProgressView().controlSize(.small) }
-                } else {
-                    VStack(spacing: 6) {
-                        Image(systemName: "photo").font(.system(size: 34)).foregroundStyle(Theme.inkSoft.opacity(0.5))
-                        Text("生成中…").font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
-                    }
+        ZStack {
+            RoundedRectangle(cornerRadius: 10).fill(Color.black.opacity(0.25))
+            if let url = state.mediaURL(path) {
+                AsyncImage(url: url) { img in img.resizable().scaledToFit() }
+                    placeholder: { ProgressView().controlSize(.small) }
+            } else {
+                VStack(spacing: 6) {
+                    Image(systemName: "photo").font(.system(size: 34)).foregroundStyle(Theme.inkSoft.opacity(0.5))
+                    Text("生成中…").font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
                 }
             }
-            .frame(maxWidth: 560).frame(height: 320)
-            .clipShape(RoundedRectangle(cornerRadius: 10))
-            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border, lineWidth: 1))
-            Spacer(minLength: 0)
         }
+        .frame(maxWidth: .infinity).frame(height: height)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
+        .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(Theme.border, lineWidth: 1))
     }
 }
 

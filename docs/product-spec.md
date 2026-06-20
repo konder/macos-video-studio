@@ -70,12 +70,17 @@ ReelForge 本质是一个**视频生成的工作流软件**。把"用 AI 生成�
 3. **文字 + 参考图生成** → 参考编辑流程(keyframe_edit / Qwen-Image-Edit,参考图=输入),产出 1 张图。
 
 **按类型增强 prompt(recipes.asset_prompt(atype, prompt, style))**:
-- **角色** → prompt 自动增强为「**站姿全身**(head to toe)、三视角(正/侧/背)同一角色并排、纯白底无家具、
-  按项目风格(realistic→photorealistic studio photo / anime→cel-shaded)」,尺寸宽幅 1536×768。
-  **保存的是用户原始 prompt**,增强只在实例化流程时拼接。
-  - 注:之前用 "turnaround/reference sheet" 易带出动漫风 + 坐姿,已改为"standing full body + photorealistic"。
+- **角色** → 采用三视图模板(用户提供版):
+  `{画风}, character sheet, character turnaround, front view, side view, back view, multiple angles,
+  {用户身份描述}, full body, standing, simple light gray background, neutral expression,
+  even white lighting, 8k, highly detailed, masterpiece`
+  - 画风随 project.meta.style:realistic→`photorealistic, realistic photograph` / anime→`cel-shaded illustration`。
+  - 尺寸宽幅 1536×768。**保存的是用户原始身份 prompt**,模板只在实例化流程时拼接。
+  - **Agent 写 prompt 时只描述身份/外观**(年龄性别/面部发型/服装/配饰),不写姿势/镜头/画风/背景/三视角
+    (尤其禁 sitting/illustration),由系统模板统一加 —— 避免 Agent 自带 "sitting posture/illustration" 与模板冲突。
 - 其余类型暂用原 prompt + 1024×1024。
 - **随机 seed**:每次生成/重生成用随机 seed,"重新生成"= 出新变体(不再因 seed 固定而无变化)。
+- **详情图片放大**:BigImage 占满详情宽度、高 460,scaledToFit 完整看清三视角。
 
 > **基模取舍(已定)**:编辑类基模必须有输入图,故"删参考图退化为文生图"在**最小实现里由
 > "创建时是否给参考图"决定走哪条预设流程**(给=编辑流程,不给=文生流程);技术层手动删节点到跑不通时
