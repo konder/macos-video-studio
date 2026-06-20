@@ -1,15 +1,16 @@
 """M1 一键自检(命令行):自然语言 → 选配方 → validate → 出图。
 
   cd orchestrator
+  python -m scripts.run_m1 --list-models                       # 列出 LiteLLM 可用模型
   python -m scripts.run_m1 "25岁亚洲女性,齐肩黑发,红色风衣,电影感打光,写实定稿图"
 
-必须在能访问 5090 的内网运行,且已 export ANTHROPIC_API_KEY。
+必须在能访问 5090 的内网运行,且已设 LITELLM_API_KEY + AGENT_MODEL。
 """
 from __future__ import annotations
 
 import sys
 
-from app.agent import run_agent
+from app.agent import list_models, run_agent
 from app.comfy import ComfyClient
 from app.config import settings
 from app.recipes import RecipeRegistry
@@ -20,6 +21,12 @@ DEFAULT = "生成一个25岁亚洲女性,齐肩黑发,红色风衣,电影感打�
 
 
 def main() -> None:
+    if len(sys.argv) > 1 and sys.argv[1] == "--list-models":
+        print(f"LiteLLM: {settings.litellm_base_url}")
+        for m in list_models():
+            print(f"  - {m}")
+        return
+
     prompt = " ".join(sys.argv[1:]).strip() or DEFAULT
     ctx = Context(ComfyClient(), RecipeRegistry(), ProjectStore(settings.projects_dir))
 

@@ -1,0 +1,33 @@
+{
+  "id": "i2v_local",
+  "title": "本地图生视频 (WAN 2.2 5B ti2v · 草稿)",
+  "stage": "generate",
+  "_note": "关键帧→视频。MVP 默认本地 i2v:WAN 2.2 5B ti2v(草稿,快)。定稿级用 14B i2v + lightx2v 4 步两段式(见 i2v_local_14b,后续补)。input_image 必须已在 ComfyUI input(由 pipeline 上传)。已验证身份全程保持。length 取 4n+1。",
+  "backends": ["local"],
+  "params_schema": {
+    "input_image": {"type": "string"},
+    "motion_prompt": {"type": "string", "default": "the subject moves naturally with subtle expression and gentle cinematic camera motion"},
+    "width": {"type": "integer", "default": 832},
+    "height": {"type": "integer", "default": 480},
+    "length": {"type": "integer", "default": 49},
+    "fps": {"type": "integer", "default": 16},
+    "seed": {"type": "integer", "default": 42},
+    "filename_prefix": {"type": "string", "default": "i2v"}
+  },
+  "graph_template": {
+    "nodes": {
+      "37": {"class_type": "UNETLoader", "inputs": {"unet_name": "wan2.2_ti2v_5B_fp16.safetensors", "weight_dtype": "default"}, "pos": [40, 40]},
+      "38": {"class_type": "CLIPLoader", "inputs": {"clip_name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors", "type": "wan", "device": "default"}, "pos": [40, 200]},
+      "39": {"class_type": "VAELoader", "inputs": {"vae_name": "wan2.2_vae.safetensors"}, "pos": [40, 360]},
+      "56": {"class_type": "LoadImage", "inputs": {"image": "{{input_image}}"}, "pos": [40, 500]},
+      "48": {"class_type": "ModelSamplingSD3", "inputs": {"model": ["37", 0], "shift": 8.0}, "pos": [340, 40]},
+      "6": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["38", 0], "text": "{{motion_prompt}}"}, "pos": [340, 200]},
+      "7": {"class_type": "CLIPTextEncode", "inputs": {"clip": ["38", 0], "text": "色调艳丽，过曝，静态，细节模糊不清，最差质量，低质量，畸形的，毁容的，手指融合，静止不动的画面"}, "pos": [340, 380]},
+      "55": {"class_type": "Wan22ImageToVideoLatent", "inputs": {"vae": ["39", 0], "width": "{{width}}", "height": "{{height}}", "length": "{{length}}", "batch_size": 1, "start_image": ["56", 0]}, "pos": [340, 560]},
+      "3": {"class_type": "KSampler", "inputs": {"model": ["48", 0], "positive": ["6", 0], "negative": ["7", 0], "latent_image": ["55", 0], "seed": "{{seed}}", "steps": 20, "cfg": 5.0, "sampler_name": "uni_pc", "scheduler": "simple", "denoise": 1.0}, "pos": [680, 40]},
+      "8": {"class_type": "VAEDecode", "inputs": {"samples": ["3", 0], "vae": ["39", 0]}, "pos": [1000, 40]},
+      "57": {"class_type": "CreateVideo", "inputs": {"images": ["8", 0], "fps": "{{fps}}"}, "pos": [1220, 40]},
+      "58": {"class_type": "SaveVideo", "inputs": {"video": ["57", 0], "filename_prefix": "{{filename_prefix}}", "format": "auto", "codec": "auto"}, "pos": [1440, 40]}
+    }
+  }
+}

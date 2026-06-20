@@ -58,6 +58,13 @@ Mac 只负责 UI、画布与预览；重活（推理、编排、Agent、素材�
 - **5090 环境**（已就位，见 [env-survey.md](env-survey.md)）：Blackwell · CUDA 13 / PyTorch 2.12 · ComfyUI 0.24。
   ComfyUI 跑在**容器 namespace**，故 **Orchestrator 经 HTTP 与 ComfyUI 交互、不直读其文件系统**；
   项目 / 产物存 **NAS（37T，挂 `/mnt/nas`）**。
+- **多本地算力 + 后端路由（2026-06 决策，spike 引出）**：不止一台本地算力，Orchestrator 维护一个**后端注册表**，
+  每个后端 = 一个 ComfyUI HTTP 端点（或云适配器），按「延迟敏感度 + 显存需求 + 能力 + 成本」路由任务：
+  - **本地·快速交互层 — RTX 5090 32G**（`10.10.10.2:8188`）：交互式图像、i2v 视频、快迭代/选片。
+  - **本地·大显存延迟容忍层 — DGX Spark GB10 128G**（`10.10.10.5:8188`，统一内存、带宽低·生成慢）：
+    **角色 LoRA 训练（高分辨率，破 5090 的 256² 上限）**、放不进 32G 的大模型（如 Wan-Animate 14B bf16 34G）、过夜批处理。
+  - **云层** — 即梦/可灵/Vidu/Qwen 等（partner 节点或适配器）：reference-to-video、突发产能、不值得自托管的模型。
+  路由对客户端透明；每后端独立持久化产物，统一回 NAS。这是 [pipeline.md](pipeline.md) 「本地/云路由」的细化（本地再分两层）。
 - **多客户端友好**：后端无状态化交互 + 服务器侧持久化，为将来 iPad/Web 客户端留路。
 
 ## 4. 许可 / 分发

@@ -57,3 +57,17 @@ class ComfyClient:
         r = self._http.get(self.view_url(image))
         r.raise_for_status()
         return r.content
+
+    def upload_image(self, data: bytes, name: str, overwrite: bool = True) -> str:
+        """上传一张图到 ComfyUI input 目录(供 LoadImage 引用)。返回 input 内文件名。
+
+        用于把上游产物(关键帧)喂给下游图(i2v 的 start_image / Qwen-edit 的参考)。
+        """
+        files = {"image": (name, data, "image/png")}
+        r = self._http.post(
+            f"{self.base_url}/upload/image",
+            files=files,
+            data={"overwrite": "true" if overwrite else "false"},
+        )
+        r.raise_for_status()
+        return r.json()["name"]

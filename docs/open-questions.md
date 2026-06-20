@@ -29,13 +29,31 @@ Qwen-Image / Z-Image · 视频 **WAN 2.2** 主力 · **可本机训 LoRA** · **
 ControlNet/补帧无模型需下载 · 已带 Kling/Runway/Luma/Veo 等云 partner 节点 · 项目存 NAS(37T)。
 据此已落地配方库（[agent-system.md](agent-system.md) §3）并改向 A2。
 
-### A2. 一致性技术栈选型（项目最大技术风险）—— 方向已定，待 spike 验证
+### A2. 一致性技术栈选型（项目最大技术风险）—— 方向已定，M2 spike 部分验证（2026-06）
 A1 显示 IPAdapter/InstantID/PuLID 未装、且对本机 2026 新基模未必适配，故**改向**（详见
 [agent-system.md](agent-system.md) §5 / [env-survey.md](env-survey.md) 解读）：
 - **主线：角色 LoRA**（本机 `TrainLoraNode` 训练，两风格通用、不挑基模）。
 - **对照：** Qwen-Image-Edit 参考编辑 / Flux-2·Qwen 原生参考条件。
 - **M2 spike**：以上方案 × 写实/二次元两风格，验「定稿 → 关键帧 → WAN i2v」整条链的漂移。
 - **依赖 D7**（二次元基模）；这仍是**最该尽早做实验**的点。
+
+**M2 spike 结果 + 一致性决策（✅ 已定，2026-06，详见 [spike-summary.md](spike-summary.md) 决策表）**：
+
+| 环节 | **默认** | 备选 |
+|---|---|---|
+| 图像身份锁(关键帧) | **Qwen-Image-Edit**（定稿编进场景,强一致,15s,零训练） | 角色 LoRA(中等,256²受限,DGX 高分可提升);Flux-2 原生参考(待验) |
+| 视频生成 | **WAN i2v**（关键帧→视频,身份全程;5B 草稿/14B+lightx2v 定稿） | 云 reference-to-video(即梦/Vidu,配 key) |
+
+- **e2e 验证**:一张定稿 → Qwen-edit 编进 3 场景 → i2v → 3 镜头小样,**跨镜头身份强一致** → 核心风险retire。
+- 角色 LoRA 实测中等(Z-Image 256² 限);**改为备选**,主角高保真时在 DGX 高分训练。
+- 原"参考条件 tuning-free"判断成立,且**本机已落地为 Qwen-edit(图像)+ WAN i2v(视频)**;Phantom/Animate 不做(Animate 无驱动视频条件)。
+
+### A6. 算力拓扑：多本地后端 + 路由 —— ✅ 已定（2026-06，spike 引出）
+不止一台本地算力，产品需支持**多本地后端**。Orchestrator 维护后端注册表，按「延迟敏感度 + 显存 + 能力 + 成本」路由：
+- **5090 32G** = 快速交互层（图像 / i2v / 选片）。
+- **DGX Spark GB10 128G** = 大显存·延迟容忍层（**角色 LoRA 高分辨率训练**、放不进 32G 的大模型、过夜批处理；带宽低生成慢，故不做交互）。
+- **云** = reference-to-video / 突发 / 不自托管的模型。
+细节见 [architecture.md](architecture.md) §3。是 [pipeline.md](pipeline.md) 本地/云路由的细化（本地再分两层）。**角色 LoRA 训练默认放 DGX**（破 5090 的 256² 上限）。
 
 ### A3. 云接入方式 —— ✅ 已定（2026-06）
 即梦**走火山引擎官方 API**；Qwen 走 DashScope。**新发现**：ComfyUI 已带 Kling/Runway/Luma/Veo/Sora/Vidu
@@ -77,6 +95,12 @@ Orchestrator 适配器。M6 收口细节（B 类）。
 - **资产 / 产物存储与命名**：`asset_id` 方案、缩略图 / 低码率预览生成、take ↔ 产物挂接。
 - **Agent 运行时**：M1 先**单 Agent + 工具循环**（导演 / 搭图后续再拆）；system prompt、ask-vs-proceed 策略、
   重试 / 错误翻译成人话。
+- **Agent 模型接入方式（M1 偏离记录，2026-06）**：原决策「Agent = 最新 Claude 模型 tool-use」。
+  M1 实现改为**经 LiteLLM 网关（`10.10.10.5:4000`，OpenAI 兼容）**调用，使底层模型可自由替换
+  （含非 Claude），便于本地/自建模型选型与成本控制。tool-use 协议改用 OpenAI function-calling 格式
+  （`orchestrator/app/tools.py` 的 schema 仍为单一来源，agent 内转换）。配置走 orchestrator 专属
+  `LITELLM_*` 变量并显式传给 SDK，**不改全局 `ANTHROPIC_*`**（避免影响同机 Claude Code）。
+  **如何回退**：把 `app/agent.py` 换回 anthropic SDK + `claude-opus-4-8`、`AGENT_MODEL` 填 Claude 模型即可。
 
 ## C. 已经足够清楚、可直接编码
 

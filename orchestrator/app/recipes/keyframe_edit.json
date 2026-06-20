@@ -1,0 +1,33 @@
+{
+  "id": "keyframe_edit",
+  "title": "关键帧：把定稿角色编进场景 (Qwen-Image-Edit 2511)",
+  "stage": "storyboard",
+  "_note": "一致性默认方法(spike-summary 决策表):用 Qwen-Image-Edit 2511(fp8mixed + Lightning 4步 LoRA)把已定稿的角色编辑进指定场景，身份/发型/服装强保持。input_image 必须已在 ComfyUI input 目录(由 pipeline 上传)。已 e2e 验证跨镜头一致。",
+  "backends": ["local"],
+  "params_schema": {
+    "input_image": {"type": "string"},
+    "prompt": {"type": "string"},
+    "seed": {"type": "integer", "default": 42},
+    "filename_prefix": {"type": "string", "default": "keyframe"}
+  },
+  "graph_template": {
+    "nodes": {
+      "161": {"class_type": "UNETLoader", "inputs": {"unet_name": "qwen_image_edit_2511_fp8mixed.safetensors", "weight_dtype": "default"}, "pos": [40, 40]},
+      "153": {"class_type": "LoraLoaderModelOnly", "inputs": {"model": ["161", 0], "lora_name": "qwen/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors", "strength_model": 1.0}, "pos": [40, 200]},
+      "145": {"class_type": "ModelSamplingAuraFlow", "inputs": {"model": ["153", 0], "shift": 3.1}, "pos": [40, 340]},
+      "152": {"class_type": "CFGNorm", "inputs": {"model": ["145", 0], "strength": 1.0}, "pos": [40, 460]},
+      "162": {"class_type": "CLIPLoader", "inputs": {"clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "type": "qwen_image", "device": "default"}, "pos": [40, 600]},
+      "146": {"class_type": "VAELoader", "inputs": {"vae_name": "qwen_image_vae.safetensors"}, "pos": [40, 760]},
+      "56": {"class_type": "LoadImage", "inputs": {"image": "{{input_image}}"}, "pos": [340, 40]},
+      "160": {"class_type": "FluxKontextImageScale", "inputs": {"image": ["56", 0]}, "pos": [340, 260]},
+      "151": {"class_type": "TextEncodeQwenImageEditPlus", "inputs": {"clip": ["162", 0], "prompt": "{{prompt}}", "vae": ["146", 0], "image1": ["160", 0]}, "pos": [640, 40]},
+      "147": {"class_type": "FluxKontextMultiReferenceLatentMethod", "inputs": {"conditioning": ["151", 0], "reference_latents_method": "index_timestep_zero"}, "pos": [640, 260]},
+      "149": {"class_type": "TextEncodeQwenImageEditPlus", "inputs": {"clip": ["162", 0], "prompt": "", "vae": ["146", 0], "image1": ["160", 0]}, "pos": [640, 420]},
+      "148": {"class_type": "FluxKontextMultiReferenceLatentMethod", "inputs": {"conditioning": ["149", 0], "reference_latents_method": "index_timestep_zero"}, "pos": [640, 600]},
+      "156": {"class_type": "VAEEncode", "inputs": {"pixels": ["160", 0], "vae": ["146", 0]}, "pos": [640, 760]},
+      "169": {"class_type": "KSampler", "inputs": {"model": ["152", 0], "positive": ["147", 0], "negative": ["148", 0], "latent_image": ["156", 0], "seed": "{{seed}}", "steps": 4, "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0}, "pos": [980, 40]},
+      "158": {"class_type": "VAEDecode", "inputs": {"samples": ["169", 0], "vae": ["146", 0]}, "pos": [1300, 40]},
+      "159": {"class_type": "SaveImage", "inputs": {"images": ["158", 0], "filename_prefix": "{{filename_prefix}}"}, "pos": [1520, 40]}
+    }
+  }
+}
