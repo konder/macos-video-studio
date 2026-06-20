@@ -40,3 +40,7 @@ Qwen-edit 把定稿编进场景(对比 anchor):
 ## 阶段3+ 导演自动编排资产
 导演读剧本+资产库,**自动把"白羽绒服"资产分配给镜头2**并组合出片(雪天换装,同一张脸):
 ![director asset](stage3-director-asset.png)
+
+## 阶段6 云端 reference-to-video(火山 Agent Plan · 豆包 Seedance)
+经火山方舟 Agent Plan(`/api/plan/v3`,doubao-seedance-1.5-pro)图生视频,端到端跑通(create→poll→download):
+![cloud seedance](stage6-cloud-seedance.gif)

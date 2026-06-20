@@ -63,14 +63,15 @@ def get_volcano() -> "VolcanoArkAdapter":
 
     VOLCANO_API_KEY  Agent Plan 专属 key(非 Coding/普通 key)
     VOLCANO_ENDPOINT 默认 https://ark.cn-beijing.volces.com/api/plan/v3(含 /plan)
-    VOLCANO_MODEL    默认 doubao-seedance-2.0
+    VOLCANO_MODEL    默认 doubao-seedance-1.5-pro(本账号已开通可用;seedance-2.0/2.0-fast
+                     虽是 Agent Plan 模型,但本账号未开通→ UnsupportedModel,开通后可切)
     """
     key = os.environ.get("VOLCANO_API_KEY", "")
     if not key:
         raise CloudNotConfigured("缺少 VOLCANO_API_KEY(Agent Plan 专属 key)")
     return VolcanoArkAdapter(
         os.environ.get("VOLCANO_ENDPOINT", "https://ark.cn-beijing.volces.com/api/plan/v3"),
-        key, model=os.environ.get("VOLCANO_MODEL", "doubao-seedance-2.0"))
+        key, model=os.environ.get("VOLCANO_MODEL", "doubao-seedance-1.5-pro"))
 
 
 class VolcanoArkAdapter:
