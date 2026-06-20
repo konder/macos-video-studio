@@ -107,3 +107,18 @@ add_node 的 UI(需 object_info 节点选择器,当前可改参/删节点/连线
 
 **诚实结论**:复审发现的 🔴/🟡 大部分已修;仅持久化目录形态作为低优先暂缓项保留。地基级不变量
 + Agent 对称编辑 + 云虚拟节点 + 意图检索均已对齐。动手前必读 native-ui/data-model/agent-system/api-contract。
+
+## 复审第二轮(亲读 architecture/pipeline/walkthrough 后新发现)
+
+均为**功能未建全**(非地基不变量破坏),记录待办:
+
+- 🟡 **导演 Agent 不做智能后端路由**:pipeline §2 / walkthrough 要导演 Agent 按「质量/速度/成本/
+  可用性」按镜头选本地↔云(用户可固定偏好);实际 director 恒走本地(route("edit"/"i2v")→5090),
+  云只能在客户端手动逐镜头点。
+- 🟡 **选片自动初筛未实现**:pipeline §3 / mockups §4 / walkthrough 步骤6 要多 take 网格 + 美学评分 +
+  一致性评分 + Agent 自动剔除漂移 + 两两对比;实际仅 takes 列表 + 手动选用,无评分/初筛/对比。
+- 🟡 **角色定稿流程未在 GUI 串起**:walkthrough 步骤1 要「新建角色(文本/参考图)→ char_turnaround
+  多视角定稿 → 一致性自检相似度 → 锁档案」;实际「新建角色」只存档/上传参考图,不触发 char_turnaround
+  生成多视角,也无相似度自检。(配方与管线已具备,缺 GUI 串联与自检。)
+- 🟢 已知并接受:ComfyUI 节点级 latent 预览(需 ComfyUI WS);ControlNet/补帧(RIFE/FILM)模型未下载
+  (env);存储未落 NAS;客户端云密钥 Keychain(当前无客户端密钥,密钥在服务器 env,N/A)。
