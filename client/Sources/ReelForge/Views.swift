@@ -1,7 +1,19 @@
 import SwiftUI
+import AppKit
+
+// SwiftPM 裸可执行(非 .app bundle)默认不是 regular 激活策略,
+// `swift run` 时窗口不弹/不在前台。用 AppDelegate 设为 regular 并激活。
+final class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationDidFinishLaunching(_ note: Notification) {
+        NSApp.setActivationPolicy(.regular)
+        NSApp.activate(ignoringOtherApps: true)
+    }
+    func applicationShouldTerminateAfterLastWindowClosed(_ app: NSApplication) -> Bool { true }
+}
 
 @main
 struct ReelForgeApp: App {
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
     @StateObject private var state = AppState()
     var body: some Scene {
         WindowGroup("ReelForge") {
