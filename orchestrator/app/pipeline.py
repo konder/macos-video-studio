@@ -76,6 +76,49 @@ def train_character_lora(
             "prompt_id": pid, "ok": bool(ok), "lora_prefix": prefix}
 
 
+def keyframe_compose(
+    comfy, store, ref_paths: list[str], prompt: str,
+    seed: int = 42, prefix: str = "keyframe",
+) -> dict:
+    """多资产组合关键帧:用 Qwen-Image-Edit 多图参考(image1/2/3)把 角色+服装+背景 等
+    组合进一张关键帧。ref_paths[0]=主参考(通常角色,提供 latent),其余为服装/背景/道具。
+
+    prompt 里用 "image 1 / image 2 / ..." 指代各参考,并强调保持角色身份/服装一致。
+    返回 {"keyframe": path, "errors": [...]}.
+    """
+    refs = ref_paths[:3]  # Qwen-edit Plus 支持至多 3 图
+    names = [comfy.upload_image(Path(p).read_bytes(), os.path.basename(p)) for p in refs]
+
+    g: dict = {
+        "unet": {"class_type": "UNETLoader", "inputs": {"unet_name": "qwen_image_edit_2511_fp8mixed.safetensors", "weight_dtype": "default"}},
+        "lora": {"class_type": "LoraLoaderModelOnly", "inputs": {"model": ["unet", 0], "lora_name": "qwen/Qwen-Image-Edit-2511-Lightning-4steps-V1.0-bf16.safetensors", "strength_model": 1.0}},
+        "msa": {"class_type": "ModelSamplingAuraFlow", "inputs": {"model": ["lora", 0], "shift": 3.1}},
+        "cfgn": {"class_type": "CFGNorm", "inputs": {"model": ["msa", 0], "strength": 1.0}},
+        "clip": {"class_type": "CLIPLoader", "inputs": {"clip_name": "qwen_2.5_vl_7b_fp8_scaled.safetensors", "type": "qwen_image", "device": "default"}},
+        "vae": {"class_type": "VAELoader", "inputs": {"vae_name": "qwen_image_vae.safetensors"}},
+    }
+    img_inputs: dict = {}
+    for i, nm in enumerate(names):
+        g[f"load{i}"] = {"class_type": "LoadImage", "inputs": {"image": nm}}
+        g[f"scale{i}"] = {"class_type": "FluxKontextImageScale", "inputs": {"image": [f"load{i}", 0]}}
+        img_inputs[f"image{i+1}"] = [f"scale{i}", 0]
+
+    pos_enc = {"clip": ["clip", 0], "prompt": prompt, "vae": ["vae", 0], **img_inputs}
+    g["pos_enc"] = {"class_type": "TextEncodeQwenImageEditPlus", "inputs": pos_enc}
+    g["pos"] = {"class_type": "FluxKontextMultiReferenceLatentMethod", "inputs": {"conditioning": ["pos_enc", 0], "reference_latents_method": "index_timestep_zero"}}
+    g["neg_enc"] = {"class_type": "TextEncodeQwenImageEditPlus", "inputs": {"clip": ["clip", 0], "prompt": "", "vae": ["vae", 0], "image1": ["scale0", 0]}}
+    g["neg"] = {"class_type": "FluxKontextMultiReferenceLatentMethod", "inputs": {"conditioning": ["neg_enc", 0], "reference_latents_method": "index_timestep_zero"}}
+    g["enc"] = {"class_type": "VAEEncode", "inputs": {"pixels": ["scale0", 0], "vae": ["vae", 0]}}
+    g["k"] = {"class_type": "KSampler", "inputs": {"model": ["cfgn", 0], "positive": ["pos", 0], "negative": ["neg", 0], "latent_image": ["enc", 0], "seed": seed, "steps": 4, "cfg": 1.0, "sampler_name": "euler", "scheduler": "simple", "denoise": 1.0}}
+    g["dec"] = {"class_type": "VAEDecode", "inputs": {"samples": ["k", 0], "vae": ["vae", 0]}}
+    g["save"] = {"class_type": "SaveImage", "inputs": {"images": ["dec", 0], "filename_prefix": prefix}}
+
+    res = run_ir({"nodes": {k: {"class_type": v["class_type"], "inputs": v["inputs"], "pos": [0, 0]} for k, v in g.items()}}, comfy, store)
+    if res.get("error") or not res["assets"]:
+        return {"keyframe": None, "errors": [res.get("error", "compose 无产物")]}
+    return {"keyframe": res["assets"][0], "errors": []}
+
+
 def shot_to_video(
     comfy,
     recipes,

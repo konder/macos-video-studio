@@ -32,3 +32,7 @@ Qwen-edit 把定稿编进场景(对比 anchor):
 ## M1 Agent 搭图样图
 ![m1 man](m1-sample-man.png)
 ![m1 woman](m1-sample-woman.png)
+
+## 阶段3.5 多资产组合:角色 + 服装资产 → 组合关键帧
+角色(image1,红风衣)+ 服装资产(image2,白羽绒服)→ 同一张脸换上新服装(Qwen-edit 多图参考)。
+![compose](stage35-compose.png)

@@ -75,6 +75,26 @@ class ProjectStore:
     def get_character(self, char_id: str) -> dict | None:
         return next((c for c in self.load()["characters"] if c["id"] == char_id), None)
 
+    # ---- Asset Library(服装/背景/道具/风格,角色见 Character Bible)----
+    def add_asset(self, asset_type: str, name: str, prompt: str = "",
+                  finals: list[str] | None = None, meta: dict | None = None) -> dict:
+        """通用资产:type ∈ wardrobe/prop/environment/styleframe(角色用 add_character)。
+        finals = 该资产的参考图集(可作 Qwen-edit 多图参考注入分镜)。"""
+        doc = self.load()
+        asset = {"id": _nid(asset_type[:4]), "type": asset_type, "name": name,
+                 "prompt": prompt, "finals": finals or [], "meta": meta or {},
+                 "created": time.time()}
+        doc["assets"].append(asset)
+        self._write(doc)
+        return asset
+
+    def list_assets(self, asset_type: str | None = None) -> list[dict]:
+        items = self.load()["assets"]
+        return [a for a in items if asset_type is None or a.get("type") == asset_type]
+
+    def get_asset(self, asset_id: str) -> dict | None:
+        return next((a for a in self.load()["assets"] if a["id"] == asset_id), None)
+
     # ---- Shots / takes ----
     def add_shot(self, script: str = "", refs: list[str] | None = None,
                  scene_prompt: str = "", motion_prompt: str = "") -> dict:
