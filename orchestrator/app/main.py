@@ -179,6 +179,32 @@ def project_ops(name: str, body: ChangeIn):
     return {"ok": True, "seq": change["seq"], "change": change}
 
 
+@app.post("/projects/{name}/shots/{shot_id}/graph/build")
+def build_shot_graph(name: str, shot_id: str, task: str = "keyframe_edit"):
+    """技术层:把镜头某任务实例化为 Graph IR 并落库(shot.graph),供节点画布展示/编辑。
+    task=keyframe_edit(生成关键帧)| i2v_local(关键帧→视频)。"""
+    store = _store(name)
+    doc = store.load()
+    shot = next((s for s in doc["shots"] if s["id"] == shot_id), None)
+    if shot is None:
+        raise HTTPException(404, f"未知镜头 {shot_id}")
+    refs = shot.get("refs") or []
+    char = next((c for c in doc.get("characters", []) if c["id"] in refs), None)
+    img = os.path.basename((char or {}).get("finals", ["input.png"])[0]) if char else "input.png"
+    if task == "i2v_local":
+        ir = _recipes.instantiate("i2v_local", {
+            "input_image": os.path.basename(shot.get("keyframe") or "keyframe.png"),
+            "motion_prompt": shot.get("motion_prompt") or "",
+            "seed": 42, "filename_prefix": f"{shot_id}_take"})
+    else:
+        ir = _recipes.instantiate("keyframe_edit", {
+            "input_image": img, "prompt": shot.get("scene_prompt") or shot.get("script") or "",
+            "seed": 42, "filename_prefix": f"{shot_id}_keyframe"})
+    shot["graph"] = ir
+    store._write(doc)
+    return {"ok": True, "task": task, "graph": ir}
+
+
 @app.get("/projects/{name}/state")
 def project_state(name: str, since: int = 0):
     """断线重连/增量同步:since=0 返回全量 doc;否则返回 seq 之后的变更。"""

@@ -278,18 +278,22 @@ struct MiddlePane: View {
         VStack(spacing: 0) {
             header
             Rectangle().fill(Theme.border).frame(height: 1)
-            ScrollView {
-                VStack(alignment: .leading, spacing: 14) {
-                    switch state.selection {
-                    case .overview, .shotsRoot: ProductionBoard(preview: $preview)
-                    case .characters: GalleryView(kind: .characters)
-                    case .assets: GalleryView(kind: .assets)
-                    case .character(let id): CharacterDetail(id: id)
-                    case .asset(let id): AssetDetail(id: id)
-                    case .shot(let id): ShotDetail(id: id, preview: $preview)
-                    case .timeline: TimelineView(preview: $preview)
-                    }
-                }.padding(16)
+            if state.openGraphShot != nil {
+                NodeCanvasView()
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 14) {
+                        switch state.selection {
+                        case .overview, .shotsRoot: ProductionBoard(preview: $preview)
+                        case .characters: GalleryView(kind: .characters)
+                        case .assets: GalleryView(kind: .assets)
+                        case .character(let id): CharacterDetail(id: id)
+                        case .asset(let id): AssetDetail(id: id)
+                        case .shot(let id): ShotDetail(id: id, preview: $preview)
+                        case .timeline: TimelineView(preview: $preview)
+                        }
+                    }.padding(16)
+                }
             }
         }
         .background(Theme.bg)
@@ -307,6 +311,10 @@ struct MiddlePane: View {
                 Button { state.leftCollapsed = false } label: { Image(systemName: "sidebar.left") }
                     .buttonStyle(.plain).foregroundStyle(Theme.inkSoft)
             }
+            if state.openGraphShot != nil {
+                Button { state.closeGraph() } label: { Image(systemName: "chevron.left").font(.system(size: 13, weight: .semibold)) }
+                    .buttonStyle(.plain).foregroundStyle(Theme.accent).help("返回导演层")
+            }
             Text(breadcrumb).font(.system(size: 14, weight: .semibold)).foregroundStyle(Theme.ink).lineLimit(1)
             Spacer()
             Button { state.rightCollapsed.toggle() } label: { Image(systemName: "sidebar.right") }
@@ -315,6 +323,10 @@ struct MiddlePane: View {
     }
 
     var breadcrumb: String {
+        if let g = state.openGraphShot {
+            let i = (state.shots.firstIndex { $0.id == g }).map { $0 + 1 } ?? 0
+            return "镜 \(i) · 生成 · 节点图(技术层)"
+        }
         switch state.selection {
         case .overview: return "\(state.project) · 概览"
         case .characters: return "\(state.project) · 角色"
@@ -628,17 +640,18 @@ struct ShotDetail: View {
                 if let sp = s.scene_prompt { labeled("画面 prompt", sp) }
                 if let mp = s.motion_prompt { labeled("运动 prompt", mp) }
             }.card()
-            // 任务 → 钻进技术层(节点图)。阶段B 实现画布,先入口可见。
+            // 任务 → 钻进技术层(节点图)
             HStack(spacing: 8) {
-                taskChip("生成", "钻进生成任务的节点图(技术层)")
-                Text("点任务进入技术层 flow · 阶段B").font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
+                taskChip("生成", "keyframe_edit")
+                taskChip("成片", "i2v_local")
+                Text("点任务进入技术层 flow").font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
             }
             takesCard(s)
         }
     }
 
-    func taskChip(_ name: String, _ help: String) -> some View {
-        Button { } label: {
+    func taskChip(_ name: String, _ task: String) -> some View {
+        Button { Task { await state.openGraph(id, task: task) } } label: {
             HStack(spacing: 5) {
                 Image(systemName: "chevron.left.forwardslash.chevron.right").font(.system(size: 11))
                 Text(name + " · 节点图").font(.system(size: 12, weight: .medium))
@@ -646,8 +659,8 @@ struct ShotDetail: View {
             .padding(.horizontal, 10).padding(.vertical, 5)
             .background(RoundedRectangle(cornerRadius: 8).fill(Theme.surface))
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border, lineWidth: 1))
-            .foregroundStyle(Theme.inkSoft)
-        }.buttonStyle(.plain).disabled(true).help(help)
+            .foregroundStyle(Theme.accent)
+        }.buttonStyle(.plain).disabled(state.busy)
     }
 
     func labeled(_ k: String, _ v: String) -> some View {
@@ -834,6 +847,102 @@ struct Bubble: View {
                 .frame(maxWidth: .infinity, alignment: isUser ? .trailing : .leading)
             if !isUser { Spacer(minLength: 20) }
         }
+    }
+}
+
+// MARK: - 技术层:节点画布(钻进单镜任务的执行 flow)
+
+struct NodeCanvasView: View {
+    @EnvironmentObject var state: AppState
+    @State private var selected: String?
+    let NW: CGFloat = 178
+
+    var nodesById: [String: NodeVM] { Dictionary(state.graphNodes.map { ($0.id, $0) }, uniquingKeysWith: { a, _ in a }) }
+    var canvasSize: CGSize {
+        let mx = state.graphNodes.map { $0.pos.x }.max() ?? 0
+        let my = state.graphNodes.map { $0.pos.y }.max() ?? 0
+        return CGSize(width: mx + NW + 80, height: my + 300)
+    }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ScrollView([.horizontal, .vertical]) {
+                ZStack(alignment: .topLeading) {
+                    Canvas { ctx, _ in
+                        for l in state.graphLinks {
+                            guard let s = nodesById[l.from], let d = nodesById[l.to] else { continue }
+                            let a = CGPoint(x: s.pos.x + NW, y: s.pos.y + 18)
+                            let b = CGPoint(x: d.pos.x, y: d.pos.y + 18)
+                            var p = Path()
+                            p.move(to: a)
+                            p.addCurve(to: b, control1: CGPoint(x: a.x + 55, y: a.y), control2: CGPoint(x: b.x - 55, y: b.y))
+                            ctx.stroke(p, with: .color(Theme.inkSoft.opacity(0.55)), lineWidth: 1.5)
+                        }
+                    }.frame(width: canvasSize.width, height: canvasSize.height)
+                    ForEach(state.graphNodes) { n in
+                        NodeCardView(node: n, selected: selected == n.id, width: NW)
+                            .offset(x: n.pos.x, y: n.pos.y)
+                            .onTapGesture { selected = n.id }
+                    }
+                }
+                .frame(width: canvasSize.width, height: canvasSize.height, alignment: .topLeading)
+                .padding(20)
+            }
+            .background(Theme.bg)
+
+            if let sel = selected, let n = nodesById[sel] {
+                Rectangle().fill(Theme.border).frame(width: 1)
+                NodeInspector(node: n).frame(width: 232)
+            }
+        }
+    }
+}
+
+struct NodeCardView: View {
+    let node: NodeVM
+    let selected: Bool
+    let width: CGFloat
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            Text(node.classType).font(.system(size: 11, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+                .padding(.horizontal, 8).padding(.vertical, 5)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Theme.accent.opacity(selected ? 0.95 : 0.7))
+            VStack(alignment: .leading, spacing: 2) {
+                ForEach(Array(node.params.prefix(5)), id: \.0) { k, v in
+                    HStack(spacing: 4) {
+                        Text(k).foregroundStyle(Theme.inkSoft)
+                        Text(v).foregroundStyle(Theme.ink).lineLimit(1)
+                    }.font(.system(size: 9))
+                }
+                if node.params.count > 5 { Text("… +\(node.params.count - 5)").font(.system(size: 9)).foregroundStyle(Theme.inkSoft) }
+                if node.params.isEmpty { Text("—").font(.system(size: 9)).foregroundStyle(Theme.inkSoft) }
+            }.padding(8)
+        }
+        .frame(width: width, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Theme.surface))
+        .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(selected ? Theme.accent : Theme.border, lineWidth: selected ? 2 : 1))
+        .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+}
+
+struct NodeInspector: View {
+    let node: NodeVM
+    var body: some View {
+        ScrollView {
+            VStack(alignment: .leading, spacing: 8) {
+                SectionLabel(icon: "slider.horizontal.3", text: node.classType)
+                Text("id \(node.id)").font(.system(size: 11, design: .monospaced)).foregroundStyle(Theme.inkSoft)
+                ForEach(Array(node.params), id: \.0) { k, v in
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(k).font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.inkSoft)
+                        Text(v).font(.system(size: 11, design: .monospaced)).foregroundStyle(Theme.ink).textSelection(.enabled)
+                    }
+                }
+                Text("改参 / 增删节点 → 经 op 提交进统一历史(对称写入),即将接通。")
+                    .font(.system(size: 10)).foregroundStyle(Theme.inkSoft.opacity(0.8)).padding(.top, 6)
+            }.padding(12)
+        }.background(Theme.sidebar)
     }
 }
 

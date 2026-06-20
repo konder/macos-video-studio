@@ -32,6 +32,11 @@ final class AppState: ObservableObject {
     @Published var rightCollapsed = false
     @Published var activity = ""                     // 全局活动栏当前动作
 
+    // 技术层:钻进某镜头任务的节点画布
+    @Published var openGraphShot: String?
+    @Published var graphNodes: [NodeVM] = []
+    @Published var graphLinks: [GraphLink] = []
+
     var characters: [Character] { detail?.characters ?? [] }
     var assets: [Asset] { detail?.assets ?? [] }
     var history: [Change] { (detail?.history ?? []).reversed() }   // 最新在上
@@ -138,6 +143,17 @@ final class AppState: ObservableObject {
             await loadDetail()
         } catch { chatLog.append("❌ 选片失败: \(error.localizedDescription)") }
     }
+
+    /// 钻进镜头的「生成」任务 → 节点画布(技术层)。
+    func openGraph(_ shot: String, task: String = "keyframe_edit") async {
+        busy = true; activity = "构建节点图…"; defer { busy = false; activity = "" }
+        do {
+            let g = try await api.buildGraph(project: project, shot: shot, task: task)
+            let (n, l) = parseGraph(g)
+            graphNodes = n; graphLinks = l; openGraphShot = shot
+        } catch { chatLog.append("❌ 构建节点图失败: \(error.localizedDescription)") }
+    }
+    func closeGraph() { openGraphShot = nil; graphNodes = []; graphLinks = [] }
 
     func export() async {
         busy = true; defer { busy = false }

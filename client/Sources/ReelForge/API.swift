@@ -47,6 +47,15 @@ struct API {
         (try await get("projects/\(project)/shots") as ShotsResponse).shots
     }
     func project(_ name: String) async throws -> ProjectDetail { try await get("projects/\(name)") }
+
+    /// 技术层:为镜头某任务实例化 Graph IR(落库 shot.graph)并返回原始图。
+    func buildGraph(project: String, shot: String, task: String = "keyframe_edit") async throws -> [String: Any] {
+        var req = URLRequest(url: try url("projects/\(project)/shots/\(shot)/graph/build?task=\(task)"))
+        req.httpMethod = "POST"
+        let (data, _) = try await URLSession.shared.data(for: req)
+        let obj = (try JSONSerialization.jsonObject(with: data)) as? [String: Any] ?? [:]
+        return obj["graph"] as? [String: Any] ?? [:]
+    }
     func makeFilm(_ req: FilmRequest) async throws -> FilmResponse { try await post("films", req) }
 
     /// 提交一段 ops 作为一个变更(人/Agent 同构,进统一历史)。返回新 seq。
