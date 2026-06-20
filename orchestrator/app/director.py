@@ -6,9 +6,21 @@
 from __future__ import annotations
 
 import json
-import os
+import time
 
+from .ops import record_change
 from .pipeline import keyframe_compose, shot_to_video
+from .store import _nid
+
+
+def _commit(store, ops: list[dict], rationale: str, author: str = "agent") -> dict:
+    """导演 Agent 的写操作经 op + 统一历史落库(无特权写路径,见 native-ui 头号原则)。"""
+    doc = store.load()
+    ch = record_change(doc, ops, author=author, rationale=rationale)
+    ch["ts"] = time.time()
+    doc["history"][-1]["ts"] = ch["ts"]
+    store._write(doc)
+    return ch
 
 
 SHOTLIST_SYS = """你是一位影视导演 + 分镜师。给定【角色描述】、可选【资产库】(服装/背景/道具等,每个有 id)和一段【剧本/情境】,把它拆成有序的镜头清单。
@@ -78,19 +90,21 @@ def produce_film(
     shots_plan = plan_shotlist(script, character_desc, n_shots, client, model, assets=assets)
     emit(f"导演拆出 {len(shots_plan)} 个镜头" + (f"(资产库 {len(assets)} 项)" if assets else ""))
 
-    char = store.add_character(
-        name=character_desc[:20], source="text", finals=[character_image], trigger="",
-    )
+    char_id = _nid("char")
+    _commit(store, [{"op": "create_character", "id": char_id, "name": character_desc[:20],
+                     "source": "text", "finals": [character_image], "trigger": ""}],
+            "建立角色档案")
     comfy = registry.route("edit").client  # 交互式 → 5090
 
     from .pipeline import shot_to_video as _s2v
     results = []
     for i, sp in enumerate(shots_plan):
         use_ids = [aid for aid in sp.get("use_assets", []) if aid in asset_by_id]
-        shot = store.add_shot(
-            script=sp.get("script", ""), refs=[char["id"], *use_ids],
-            scene_prompt=sp.get("scene", ""), motion_prompt=sp.get("motion", ""),
-        )
+        shot_id = _nid("shot")
+        _commit(store, [{"op": "create_shot", "id": shot_id, "script": sp.get("script", ""),
+                         "refs": [char_id, *use_ids], "scene_prompt": sp.get("scene", ""),
+                         "motion_prompt": sp.get("motion", "")}],
+                f"建镜头 {i+1}:{sp.get('script','')[:20]}")
         emit(f"镜头 {i+1}/{len(shots_plan)}: {sp.get('script','')[:36]}"
              + (f" +资产{use_ids}" if use_ids else ""))
 
@@ -98,9 +112,10 @@ def produce_film(
             # 多资产组合:角色 + 选中资产 → keyframe_compose
             refs = [character_image] + [asset_by_id[a]["image"] for a in use_ids]
             kf = keyframe_compose(comfy, store, refs, sp.get("scene", ""),
-                                  seed=42 + i, prefix=f"{shot['id']}_keyframe")
+                                  seed=42 + i, prefix=f"{shot_id}_keyframe")
             if kf.get("keyframe"):
-                store.set_keyframe(shot["id"], kf["keyframe"])
+                _commit(store, [{"op": "set_keyframe", "shot": shot_id, "keyframe": kf["keyframe"]}],
+                        f"镜 {i+1} 关键帧")
                 # 关键帧 → i2v
                 from .pipeline import _upload
                 from .tools import run_ir, validate_ir
@@ -109,7 +124,7 @@ def produce_film(
                     "input_image": iv_name, "seed": 42 + i,
                     "motion_prompt": sp.get("motion") or
                     "the subject moves naturally with subtle expression and gentle camera motion",
-                    "filename_prefix": f"{shot['id']}_take"})
+                    "filename_prefix": f"{shot_id}_take"})
                 errs = validate_ir(ir, comfy.object_info())
                 res = run_ir(ir, comfy, store) if not errs else {"assets": [], "error": errs}
                 video = res["assets"][0] if res.get("assets") else None
@@ -119,14 +134,17 @@ def produce_film(
             res_kf = kf.get("keyframe")
         else:
             r = _s2v(comfy, recipes, store, character_image, sp.get("scene", ""),
-                     sp.get("motion"), seed=42 + i, shot_id=shot["id"])
+                     sp.get("motion"), seed=42 + i, shot_id=shot_id)
             res_kf, video, errors = r.get("keyframe"), r.get("video"), r.get("errors", [])
             if res_kf:
-                store.set_keyframe(shot["id"], res_kf)
+                _commit(store, [{"op": "set_keyframe", "shot": shot_id, "keyframe": res_kf}],
+                        f"镜 {i+1} 关键帧")
 
         if video:
-            store.add_take(shot["id"], video, meta={"backend": "local-5090", "seed": 42 + i,
-                           "recipe": "keyframe_compose+i2v" if use_ids else "keyframe_edit+i2v"})
-        results.append({"shot": shot["id"], "keyframe": res_kf, "video": video,
+            _commit(store, [{"op": "add_take", "shot": shot_id, "take": _nid("take"), "video": video,
+                             "meta": {"backend": "local-5090", "seed": 42 + i,
+                                      "recipe": "keyframe_compose+i2v" if use_ids else "keyframe_edit+i2v"}}],
+                    f"镜 {i+1} 生成 take")
+        results.append({"shot": shot_id, "keyframe": res_kf, "video": video,
                         "use_assets": use_ids, "errors": errors})
-    return {"character": char["id"], "shots": results}
+    return {"character": char_id, "shots": results}
