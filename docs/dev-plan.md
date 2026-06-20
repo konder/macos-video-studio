@@ -49,11 +49,14 @@
 - 待续:选片端点(takes 选定/回滚)、`/chat` 改 SSE 流式、镜头锁、op 序列号/历史。
 - DoD(部分达成):整链「资产→分镜→生成→导出」后端跑通;选片/SSE/锁 留作收尾。
 
-### 阶段 5 — SwiftUI 客户端（[roadmap](roadmap.md) M4）
-导演层（制片管理面）+ 技术层（节点画布）+ Agent×画布协同（[native-ui](native-ui.md) 已对齐 v0.1）。后端无状态化 + 持久化已就位，客户端为纯前端。
+### 阶段 5 — SwiftUI 客户端 ✅ `5bfaa1d`(基础版;画布/AVKit/SSE 待续)
+- `client/`(SwiftPM,**swift build 通过**):导演层分镜板(剧本→成片/选片/导出)+ Agent 对话面板,接 Orchestrator REST。
+- 待续:技术层节点画布(`/ops` 已就绪)、AVKit 视频内联预览、SSE 流式。GUI 需本地 swift run/Xcode 验。
 
-### 阶段 6 — 云接入（[open-questions A3](open-questions.md)）
-即梦（火山引擎）/ Qwen（DashScope）适配器 + ComfyUI partner 节点（Kling/Runway/Luma/Vidu/Veo）；reference-to-video 作云端一致性对照与突发产能。`submit→poll→download` 异步模型。
+### 阶段 6 — 云接入 ✅ `2ee790f`+`eac0e05`(火山 Agent Plan)
+- `cloud.py` VolcanoArkAdapter:火山方舟 Agent Plan(`/api/plan/v3`)豆包 Seedance i2v,create→poll→download。
+- 实测:**本地关键帧 → 公网托管 → 火山 Seedance 1.5-pro 云出片** 闭环跑通(seedance-2.0/2.0-fast 待账号开通)。
+- 待续:即梦 TOS 图床常态化(目前临时端口映射)、DashScope 适配器、partner 节点路径。
 
 ## 顺序与并行
 
