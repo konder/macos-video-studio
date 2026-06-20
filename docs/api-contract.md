@@ -48,3 +48,26 @@ event: done
 设计约束：
 - 断线重连后客户端可用 `GET /jobs/{job_id}` 拉回当前状态与已产出资产。
 - 预览/产物事件只带 URL，大文件按需拉取；缩略图优先。
+
+## op / 协同（编辑同一份 IR）
+
+人和 Agent 都通过同一套 **op** 改 IR（无特权写路径，见 [native-ui.md](native-ui.md)）。服务器持有权威 IR，
+客户端持本地副本 + 应用增量。
+
+| 方法 / 路径 | 作用 |
+|---|---|
+| `POST /projects/{id}/ops` | 提交一段 ops（有序）；服务器校验+应用，返回新 `seq` 与规范化 patch |
+| `GET /projects/{id}/state?since={seq}` | 拉全量 / 增量（断线重连用） |
+| `POST /shots/{sid}/lock` | 取得镜头编辑租约（body：`actor=human|agent`，带 TTL；用于「单镜头单 actor 持笔」） |
+| `DELETE /shots/{sid}/lock` | 释放租约（接管 = 在 op 边界转移租约） |
+
+```jsonc
+// op（人 / Agent 同构）
+{ "op": "set_param", "node": "n1", "widget": "steps", "value": 28 }
+{ "op": "add_node",  "node": "n9", "type": "VAEDecode", "pos": [820, 300] }
+{ "op": "connect",   "from": {"node":"n1","slot":0}, "to": {"node":"n9","slot":0} }
+// 一个「变更」= ops[] + {author, ts, rationale?, tool_call?}；带 seq，进统一历史，可整组撤销
+```
+
+- 服务器按 `seq` 单调递增定序；客户端据 `graph_patch` / `ops` 结果更新画布。
+- 镜头租约保证单镜头任意时刻只有一个 actor 持笔；跨镜头可并行。

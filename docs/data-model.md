@@ -7,7 +7,8 @@
 
 ```
 Project（一支片子）
-├─ meta: 标题 / 风格设定 / 宽高比 / 帧率 / 默认后端偏好 ...
+├─ meta: 标题 / 美术风格(写实·二次元) / 宽高比(16:9 主·9:16 可选) / 分辨率(生成720p→超分1080p)
+│         / 帧率(24fps) / 默认后端偏好 ...   ← MVP 规格默认见 open-questions D3
 ├─ AssetLibrary / Character Bible        ← 一致性的锚点
 │   ├─ Character[]   来源(文本/参考图) + 风格(写实/二次元) + 定稿图集 +
 │   │                身份锁定(按风格: InstantID·PuLID 或 IPAdapter+角色LoRA) + 触发词
@@ -70,3 +71,17 @@ Project（一支片子）
 一个项目 = **一个文件夹**：`project.json`（meta + Character Bible / 资产元数据 + Shots + 每镜头 Graph IR）
 + 媒体文件（图 / 视频 / 中间预览）+ 缩略图。理由：可移植、易备份、对 Git 友好、天然支撑「导出工程」。
 大媒体单独落盘、元数据走 JSON；`asset_id` 与节点 `id` 用稳定标识，以命中缓存并支撑跨版本引用。
+
+```
+<project>/
+├─ project.json                 # meta + 资产元数据 + Shots + 每镜头 Graph IR(prompt 格式 + pos)
+├─ assets/
+│   ├─ characters/<id>/         # 定稿图集、identity 文件、(可选)LoRA、触发词
+│   └─ wardrobe|props|environments|styleframes/<id>/
+├─ shots/<shot_id>/
+│   ├─ keyframes/               # 起始 / 尾帧
+│   ├─ takes/<take_id>.mp4      # 各 take 产物（+ 同名 .json 元数据：seed/参数/后端/耗时/花费）
+│   └─ previews/                # 中间预览
+├─ thumbnails/                  # 缩略图 / 低码率预览缓存
+└─ exports/                     # 导出工程（有序片段 + FCPXML，见 pipeline §1 / open-questions D4）
+```
