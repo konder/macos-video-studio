@@ -37,6 +37,12 @@ final class AppState: ObservableObject {
     @Published var graphNodes: [NodeVM] = []
     @Published var graphLinks: [GraphLink] = []
 
+    // 协同:省心↔掌控滑块(0 省心=自动应用 / 1 中 / 2 掌控=暂存 Proposed)
+    @Published var approvalMode = 0
+    struct ProposedEdit: Identifiable { let id = UUID(); let shot: String; let node: String; let widget: String; let oldValue: String; let newValue: Any; let newDisplay: String }
+    @Published var proposed: [ProposedEdit] = []
+    @Published var locks: [String: LockInfo] = [:]
+
     var characters: [Character] { detail?.characters ?? [] }
     var assets: [Asset] { detail?.assets ?? [] }
     var history: [Change] { (detail?.history ?? []).reversed() }   // 最新在上
@@ -107,6 +113,7 @@ final class AppState: ObservableObject {
             let d = try await api.project(project)
             detail = d
             shots = d.shots ?? []
+            await loadLocks()
         } catch { /* 项目可能尚无内容 */ }
     }
 
@@ -249,7 +256,74 @@ final class AppState: ObservableObject {
             graphNodes = n; graphLinks = l; openGraphShot = shot
         } catch { chatLog.append("❌ 构建节点图失败: \(error.localizedDescription)") }
     }
-    func closeGraph() { openGraphShot = nil; graphNodes = []; graphLinks = [] }
+    func closeGraph() { openGraphShot = nil; graphNodes = []; graphLinks = []; proposed = [] }
+
+    private func coerce(_ s: String) -> Any {
+        if let i = Int(s) { return i }
+        if let d = Double(s) { return d }
+        if s == "true" { return true }; if s == "false" { return false }
+        return s
+    }
+
+    /// 改节点参数:省心模式直接发 op(自动应用+可撤销);掌控模式暂存为 Proposed。
+    func editParam(node: String, widget: String, old: String, text: String) async {
+        guard let shot = openGraphShot, text != old else { return }
+        let val = coerce(text)
+        if approvalMode == 0 {
+            do {
+                try await api.shotOps(project: project, shot: shot,
+                    ops: [["op": "set_param", "shot": shot, "node": node, "widget": widget, "value": val]],
+                    rationale: "改参 \(widget): \(old)→\(text)")
+                await reopenGraph()
+            } catch { chatLog.append("❌ 改参失败: \(error.localizedDescription)") }
+        } else {
+            proposed.removeAll { $0.node == node && $0.widget == widget }
+            proposed.append(ProposedEdit(shot: shot, node: node, widget: widget, oldValue: old, newValue: val, newDisplay: text))
+        }
+    }
+
+    /// 接受全部 Proposed:作为一个变更提交,入历史。
+    func acceptProposed() async {
+        guard let shot = openGraphShot, !proposed.isEmpty else { return }
+        let ops = proposed.map { ["op": "set_param", "shot": $0.shot, "node": $0.node, "widget": $0.widget, "value": $0.newValue] as [String: Any] }
+        do {
+            try await api.shotOps(project: project, shot: shot, ops: ops, rationale: "接受 \(ops.count) 处改参")
+            proposed = []
+            await reopenGraph()
+        } catch { chatLog.append("❌ 应用失败: \(error.localizedDescription)") }
+    }
+    func discardProposed() { proposed = [] }
+
+    func deleteNode(_ node: String) async {
+        guard let shot = openGraphShot else { return }
+        do {
+            try await api.shotOps(project: project, shot: shot,
+                ops: [["op": "delete_node", "shot": shot, "node": node]], rationale: "删除节点 \(node)")
+            await reopenGraph()
+        } catch { chatLog.append("❌ 删除失败: \(error.localizedDescription)") }
+    }
+
+    private func reopenGraph() async {
+        guard let shot = openGraphShot else { return }
+        do { let g = try await api.buildGraph(project: project, shot: shot); let (n, l) = parseGraph(g); graphNodes = n; graphLinks = l }
+        catch { }
+    }
+
+    /// 撤销最近一个可撤销变更。
+    func undoLast() async {
+        do { try await api.undo(project: project); await loadDetail(); await reopenGraph() }
+        catch { chatLog.append("❌ 撤销失败: \(error.localizedDescription)") }
+    }
+
+    func loadLocks() async { do { locks = try await api.locks(project: project) } catch { } }
+    func lockShot(_ shot: String, actor: String = "human") async {
+        do { try await api.lock(project: project, shot: shot, actor: actor); await loadLocks() } catch { }
+    }
+    func unlockShot(_ shot: String) async {
+        do { try await api.unlock(project: project, shot: shot); await loadLocks() } catch { }
+    }
+
+    /// 钻进镜头的「生成」任务 → 节点画布(技术层)。
 
     func export() async {
         busy = true; defer { busy = false }

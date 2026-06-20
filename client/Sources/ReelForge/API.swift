@@ -60,6 +60,38 @@ struct API {
         return (try JSONDecoder().decode(R.self, from: d)).path ?? ""
     }
 
+    /// 镜头级图 op(set_param/delete_node/...)→ 校验后入历史。
+    @discardableResult
+    func shotOps(project: String, shot: String, ops: [[String: Any]], rationale: String) async throws -> Int {
+        var req = URLRequest(url: try url("projects/\(project)/shots/\(shot)/ops"))
+        req.httpMethod = "POST"
+        req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        let body: [String: Any] = ["project": project, "shot_id": shot, "ops": ops,
+                                   "author": "human", "rationale": rationale, "check": false]
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+        let (data, _) = try await URLSession.shared.data(for: req)
+        struct R: Decodable { let ok: Bool?; let seq: Int? }
+        return (try JSONDecoder().decode(R.self, from: data)).seq ?? 0
+    }
+    func undo(project: String) async throws {
+        struct E: Encodable {}
+        struct R: Decodable { let ok: Bool? }
+        let _: R = try await post("projects/\(project)/undo", E())
+    }
+    func lock(project: String, shot: String, actor: String) async throws {
+        struct In: Encodable { let actor: String }
+        struct R: Decodable { let ok: Bool? }
+        let _: R = try await post("projects/\(project)/shots/\(shot)/lock", In(actor: actor))
+    }
+    func unlock(project: String, shot: String) async throws {
+        var req = URLRequest(url: try url("projects/\(project)/shots/\(shot)/lock"))
+        req.httpMethod = "DELETE"
+        _ = try await URLSession.shared.data(for: req)
+    }
+    func locks(project: String) async throws -> [String: LockInfo] {
+        (try await get("projects/\(project)/locks") as LocksResponse).locks
+    }
+
     func buildGraph(project: String, shot: String, task: String = "keyframe_edit") async throws -> [String: Any] {
         var req = URLRequest(url: try url("projects/\(project)/shots/\(shot)/graph/build?task=\(task)"))
         req.httpMethod = "POST"

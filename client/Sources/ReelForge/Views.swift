@@ -746,6 +746,7 @@ struct ShotDetail: View {
 
     func director(_ s: Shot) -> some View {
         VStack(alignment: .leading, spacing: 12) {
+            lockBar(s)
             Thumb(path: s.keyframe, size: CGSize(width: 480, height: 270))
             VStack(alignment: .leading, spacing: 8) {
                 SectionLabel(icon: "text.alignleft", text: "剧情")
@@ -790,6 +791,25 @@ struct ShotDetail: View {
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border, lineWidth: 1))
             .foregroundStyle(Theme.accent)
         }.buttonStyle(.plain).disabled(state.busy)
+    }
+
+    @ViewBuilder
+    func lockBar(_ s: Shot) -> some View {
+        let lk = state.locks[s.id]
+        HStack(spacing: 8) {
+            Image(systemName: lk == nil ? "lock.open" : "lock.fill").font(.system(size: 11))
+                .foregroundStyle(lk == nil ? Theme.inkSoft : (lk?.actor == "agent" ? Theme.accent : .green))
+            Text(lk == nil ? "未锁定 · 单镜头单 actor 持笔" : "编辑中:\(lk?.actor == "agent" ? "Agent" : "你")")
+                .font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
+            Spacer()
+            if lk == nil {
+                Button("锁定编辑") { Task { await state.lockShot(s.id) } }.buttonStyle(.bordered).tint(Theme.inkSoft).controlSize(.small)
+            } else if lk?.actor == "agent" {
+                Button("接管") { Task { await state.lockShot(s.id, actor: "human") } }.buttonStyle(.borderedProminent).tint(Theme.accent).controlSize(.small)
+            } else {
+                Button("释放") { Task { await state.unlockShot(s.id) } }.buttonStyle(.bordered).tint(Theme.inkSoft).controlSize(.small)
+            }
+        }
     }
 
     func labeled(_ k: String, _ v: String) -> some View {
@@ -943,6 +963,14 @@ struct HistoryList: View {
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
+                if !state.history.isEmpty {
+                    HStack {
+                        Text("统一历史").font(.system(size: 11, weight: .semibold)).foregroundStyle(Theme.inkSoft)
+                        Spacer()
+                        Button { Task { await state.undoLast() } } label: { Label("撤销最近", systemImage: "arrow.uturn.backward").font(.system(size: 11)) }
+                            .buttonStyle(.bordered).tint(Theme.inkSoft).controlSize(.small).disabled(state.busy)
+                    }
+                }
                 if state.history.isEmpty {
                     Text("还没有变更。选用 take、改参等写操作都会进这条统一历史。")
                         .font(.system(size: 12)).foregroundStyle(Theme.inkSoft).padding(.top, 8)
@@ -951,8 +979,10 @@ struct HistoryList: View {
                     HStack(alignment: .top, spacing: 8) {
                         Circle().fill(color(c.author)).frame(width: 7, height: 7).padding(.top, 4)
                         VStack(alignment: .leading, spacing: 2) {
-                            Text("#\(c.seq) · \(c.rationale ?? "变更")").font(.system(size: 12)).foregroundStyle(Theme.ink)
-                            Text(c.author == "agent" ? "Agent" : "你").font(.system(size: 10)).foregroundStyle(color(c.author))
+                            Text("#\(c.seq) · \(c.rationale ?? "变更")").font(.system(size: 12))
+                                .foregroundStyle(c.undone == true ? Theme.inkSoft : Theme.ink)
+                                .strikethrough(c.undone == true)
+                            Text((c.author == "agent" ? "Agent" : "你") + (c.undone == true ? " · 已撤销" : "")).font(.system(size: 10)).foregroundStyle(color(c.author))
                         }
                         Spacer(minLength: 0)
                     }
@@ -994,36 +1024,68 @@ struct NodeCanvasView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            ScrollView([.horizontal, .vertical]) {
-                ZStack(alignment: .topLeading) {
-                    Canvas { ctx, _ in
-                        for l in state.graphLinks {
-                            guard let s = nodesById[l.from], let d = nodesById[l.to] else { continue }
-                            let a = CGPoint(x: s.pos.x + NW, y: s.pos.y + 18)
-                            let b = CGPoint(x: d.pos.x, y: d.pos.y + 18)
-                            var p = Path()
-                            p.move(to: a)
-                            p.addCurve(to: b, control1: CGPoint(x: a.x + 55, y: a.y), control2: CGPoint(x: b.x - 55, y: b.y))
-                            ctx.stroke(p, with: .color(Theme.inkSoft.opacity(0.55)), lineWidth: 1.5)
+        VStack(spacing: 0) {
+            toolbar
+            Rectangle().fill(Theme.border).frame(height: 1)
+            HStack(spacing: 0) {
+                ScrollView([.horizontal, .vertical]) {
+                    ZStack(alignment: .topLeading) {
+                        Canvas { ctx, _ in
+                            for l in state.graphLinks {
+                                guard let s = nodesById[l.from], let d = nodesById[l.to] else { continue }
+                                let a = CGPoint(x: s.pos.x + NW, y: s.pos.y + 18)
+                                let b = CGPoint(x: d.pos.x, y: d.pos.y + 18)
+                                var p = Path()
+                                p.move(to: a)
+                                p.addCurve(to: b, control1: CGPoint(x: a.x + 55, y: a.y), control2: CGPoint(x: b.x - 55, y: b.y))
+                                ctx.stroke(p, with: .color(Theme.inkSoft.opacity(0.55)), lineWidth: 1.5)
+                            }
+                        }.frame(width: canvasSize.width, height: canvasSize.height)
+                        ForEach(state.graphNodes) { n in
+                            NodeCardView(node: n, selected: selected == n.id, width: NW,
+                                         proposed: state.proposed.contains { $0.node == n.id })
+                                .offset(x: n.pos.x, y: n.pos.y)
+                                .onTapGesture { selected = n.id }
                         }
-                    }.frame(width: canvasSize.width, height: canvasSize.height)
-                    ForEach(state.graphNodes) { n in
-                        NodeCardView(node: n, selected: selected == n.id, width: NW)
-                            .offset(x: n.pos.x, y: n.pos.y)
-                            .onTapGesture { selected = n.id }
                     }
+                    .frame(width: canvasSize.width, height: canvasSize.height, alignment: .topLeading)
+                    .padding(20)
                 }
-                .frame(width: canvasSize.width, height: canvasSize.height, alignment: .topLeading)
-                .padding(20)
-            }
-            .background(Theme.bg)
+                .background(Theme.bg)
 
-            if let sel = selected, let n = nodesById[sel] {
-                Rectangle().fill(Theme.border).frame(width: 1)
-                NodeInspector(node: n).frame(width: 232)
+                if let sel = selected, let n = nodesById[sel] {
+                    Rectangle().fill(Theme.border).frame(width: 1)
+                    NodeInspector(node: n).frame(width: 240)
+                }
             }
         }
+    }
+
+    var toolbar: some View {
+        HStack(spacing: 10) {
+            // 省心↔掌控滑块
+            HStack(spacing: 2) {
+                ForEach(Array(["省心", "中", "掌控"].enumerated()), id: \.offset) { i, name in
+                    Button { state.approvalMode = i } label: {
+                        Text(name).font(.system(size: 11, weight: .medium))
+                            .padding(.horizontal, 9).padding(.vertical, 3)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(state.approvalMode == i ? Theme.accent : .clear))
+                            .foregroundStyle(state.approvalMode == i ? .white : Theme.inkSoft)
+                    }.buttonStyle(.plain)
+                }
+            }.padding(2).background(RoundedRectangle(cornerRadius: 8).fill(Theme.surface)).overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Theme.border, lineWidth: 1))
+            Text(state.approvalMode == 0 ? "改参自动应用(可撤销)" : "改参暂存 Proposed").font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
+            Spacer()
+            if !state.proposed.isEmpty {
+                Text("\(state.proposed.count) 处待应用").font(.system(size: 11)).foregroundStyle(Theme.accent)
+                Button("接受全部") { Task { await state.acceptProposed() } }.buttonStyle(.borderedProminent).tint(Theme.accent).controlSize(.small)
+                Button("放弃") { state.discardProposed() }.buttonStyle(.bordered).tint(Theme.inkSoft).controlSize(.small)
+            }
+            if let sel = selected {
+                Button { Task { await state.deleteNode(sel); selected = nil } } label: { Image(systemName: "trash") }
+                    .buttonStyle(.plain).foregroundStyle(Theme.inkSoft).help("删除选中节点")
+            }
+        }.padding(.horizontal, 12).padding(.vertical, 8)
     }
 }
 
@@ -1031,12 +1093,16 @@ struct NodeCardView: View {
     let node: NodeVM
     let selected: Bool
     let width: CGFloat
+    var proposed: Bool = false
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Text(node.classType).font(.system(size: 11, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+            HStack(spacing: 4) {
+                Text(node.classType).font(.system(size: 11, weight: .semibold)).foregroundStyle(.white).lineLimit(1)
+                if proposed { Image(systemName: "pencil.circle.fill").font(.system(size: 10)).foregroundStyle(.white) }
+            }
                 .padding(.horizontal, 8).padding(.vertical, 5)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Theme.accent.opacity(selected ? 0.95 : 0.7))
+                .background(proposed ? Color.orange.opacity(0.85) : Theme.accent.opacity(selected ? 0.95 : 0.7))
             VStack(alignment: .leading, spacing: 2) {
                 ForEach(Array(node.params.prefix(5)), id: \.0) { k, v in
                     HStack(spacing: 4) {
@@ -1056,19 +1122,30 @@ struct NodeCardView: View {
 }
 
 struct NodeInspector: View {
+    @EnvironmentObject var state: AppState
     let node: NodeVM
+    @State private var vals: [String: String]
+    init(node: NodeVM) {
+        self.node = node
+        _vals = State(initialValue: Dictionary(node.params, uniquingKeysWith: { a, _ in a }))
+    }
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 8) {
                 SectionLabel(icon: "slider.horizontal.3", text: node.classType)
                 Text("id \(node.id)").font(.system(size: 11, design: .monospaced)).foregroundStyle(Theme.inkSoft)
                 ForEach(Array(node.params), id: \.0) { k, v in
-                    VStack(alignment: .leading, spacing: 1) {
+                    VStack(alignment: .leading, spacing: 2) {
                         Text(k).font(.system(size: 10, weight: .medium)).foregroundStyle(Theme.inkSoft)
-                        Text(v).font(.system(size: 11, design: .monospaced)).foregroundStyle(Theme.ink).textSelection(.enabled)
+                        TextField("", text: Binding(get: { vals[k] ?? v }, set: { vals[k] = $0 }))
+                            .textFieldStyle(.plain).font(.system(size: 11, design: .monospaced)).foregroundStyle(Theme.ink)
+                            .padding(.horizontal, 7).padding(.vertical, 5)
+                            .background(RoundedRectangle(cornerRadius: 6).fill(Theme.surface))
+                            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(Theme.border, lineWidth: 1))
+                            .onSubmit { Task { await state.editParam(node: node.id, widget: k, old: v, text: vals[k] ?? v) } }
                     }
                 }
-                Text("改参 / 增删节点 → 经 op 提交进统一历史(对称写入),即将接通。")
+                Text(state.approvalMode == 0 ? "回车即应用 op(可在历史撤销)" : "回车暂存为 Proposed,顶栏「接受全部」入历史")
                     .font(.system(size: 10)).foregroundStyle(Theme.inkSoft.opacity(0.8)).padding(.top, 6)
             }.padding(12)
         }.background(Theme.sidebar)

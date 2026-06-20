@@ -145,18 +145,86 @@ def apply_project_ops(doc: dict, ops: list[dict]) -> dict:
             a[field] = op["value"]
         elif kind == "set_meta":
             doc.setdefault("meta", {})[op["key"]] = op["value"]
+        elif kind == "delete_character":
+            doc["characters"] = [c for c in doc.get("characters", []) if c["id"] != op["id"]]
+        elif kind == "delete_asset":
+            doc["assets"] = [a for a in doc.get("assets", []) if a["id"] != op["id"]]
+        elif kind == "delete_take":
+            shot = _shot(doc, op["shot"])
+            shot["takes"] = [t for t in shot.get("takes", []) if t["id"] != op["take"]]
+            if shot.get("selected_take") == op["take"]:
+                shot["selected_take"] = shot["takes"][0]["id"] if shot["takes"] else None
         else:
             raise OpError(f"未知 op: {kind}")
     return doc
 
 
+# 撤销:在应用前读当前状态,算出能把 doc 复原的逆操作组(倒序)。
+# 不可逆的(add_take/set_keyframe 含已产出 take、delete_*)返回 None → 该变更不可撤销
+# (符合 native-ui:撤销改 IR 状态,不删已产出 take)。
+_INVERTIBLE_SET = {
+    "set_meta": ("meta_key",), "set_param": ("node_widget",), "set_pos": ("shot_node",),
+    "set_refs": ("shot",), "set_shot_field": ("shot_field",),
+    "set_character_field": ("char_field",), "set_asset_field": ("asset_field",),
+}
+
+
+def invert_ops(doc: dict, ops: list[dict]) -> list[dict] | None:
+    """返回可把 doc 复原的逆 op(倒序);任一 op 不可逆则返回 None。"""
+    inv: list[dict] = []
+    for op in ops:
+        k = op.get("op")
+        if k == "set_meta":
+            prev = (doc.get("meta") or {}).get(op["key"])
+            inv.append({"op": "set_meta", "key": op["key"], "value": prev})
+        elif k == "set_param":
+            n = ((_find_shot(doc, op["shot"]) or {}).get("graph") or {}).get("nodes", {}).get(op["node"], {})
+            inv.append({"op": "set_param", "shot": op["shot"], "node": op["node"],
+                        "widget": op["widget"], "value": (n.get("inputs") or {}).get(op["widget"])})
+        elif k == "set_pos":
+            n = ((_find_shot(doc, op["shot"]) or {}).get("graph") or {}).get("nodes", {}).get(op["node"], {})
+            inv.append({"op": "set_pos", "shot": op["shot"], "node": op["node"], "pos": n.get("pos", [0, 0])})
+        elif k == "set_refs":
+            inv.append({"op": "set_refs", "shot": op["shot"], "refs": (_find_shot(doc, op["shot"]) or {}).get("refs", [])})
+        elif k == "set_shot_field":
+            inv.append({"op": "set_shot_field", "shot": op["shot"], "field": op["field"],
+                        "value": (_find_shot(doc, op["shot"]) or {}).get(op["field"], "")})
+        elif k == "set_character_field":
+            c = next((c for c in doc.get("characters", []) if c["id"] == op["id"]), {})
+            inv.append({"op": "set_character_field", "id": op["id"], "field": op["field"], "value": c.get(op["field"])})
+        elif k == "set_asset_field":
+            a = next((a for a in doc.get("assets", []) if a["id"] == op["id"]), {})
+            inv.append({"op": "set_asset_field", "id": op["id"], "field": op["field"], "value": a.get(op["field"])})
+        elif k == "select_take":
+            prev = (_find_shot(doc, op["shot"]) or {}).get("selected_take")
+            if not prev:
+                return None
+            inv.append({"op": "select_take", "shot": op["shot"], "take": prev})
+        elif k == "create_shot":
+            inv.append({"op": "delete_shot", "shot": op["id"]})
+        elif k == "create_character":
+            inv.append({"op": "delete_character", "id": op["id"]})
+        elif k == "create_asset":
+            inv.append({"op": "delete_asset", "id": op["id"]})
+        else:
+            return None   # add_take / set_keyframe / delete_* 等:不可撤销(保留产物)
+    inv.reverse()
+    return inv
+
+
+def _find_shot(doc: dict, sid: str) -> dict | None:
+    return next((s for s in doc.get("shots", []) if s["id"] == sid), None)
+
+
 def record_change(doc: dict, ops: list[dict], author: str = "human",
                   rationale: str = "", tool_call: str | None = None) -> dict:
-    """应用 ops 并以单调 seq 记入统一历史。返回该 change(含 seq)。"""
+    """应用 ops 并以单调 seq 记入统一历史。先算逆操作(用于撤销),再应用。返回该 change。"""
+    inverse = invert_ops(doc, ops)      # 必须在 apply 前读旧状态
     apply_project_ops(doc, ops)
     seq = int(doc.get("seq", 0)) + 1
     doc["seq"] = seq
     change = {"seq": seq, "author": author, "rationale": rationale,
-              "tool_call": tool_call, "ops": ops}
+              "tool_call": tool_call, "ops": ops, "inverse": inverse,
+              "undoable": inverse is not None, "undone": False}
     doc.setdefault("history", []).append(change)
     return change

@@ -84,6 +84,7 @@ struct Change: Codable, Identifiable, Hashable {
     let author: String
     let rationale: String?
     let ts: Double?
+    let undone: Bool?
     var id: Int { seq }
 }
 
@@ -105,6 +106,9 @@ struct Job: Codable, Hashable {
     let cost: Double?
     let error: String?
 }
+
+struct LockInfo: Codable, Hashable { let actor: String; let ts: Double? }
+struct LocksResponse: Codable { let locks: [String: LockInfo] }
 
 struct ProjectsList: Codable { let projects: [String] }
 struct ShotsResponse: Codable { let shots: [Shot] }

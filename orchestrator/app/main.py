@@ -338,14 +338,17 @@ def project_ops(name: str, body: ChangeIn):
 
 
 @app.post("/projects/{name}/shots/{shot_id}/graph/build")
-def build_shot_graph(name: str, shot_id: str, task: str = "keyframe_edit"):
+def build_shot_graph(name: str, shot_id: str, task: str = "keyframe_edit", force: bool = False):
     """技术层:把镜头某任务实例化为 Graph IR 并落库(shot.graph),供节点画布展示/编辑。
+    已有 graph 时默认返回现有(保留 op 编辑);force=True 才按配方重建。
     task=keyframe_edit(生成关键帧)| i2v_local(关键帧→视频)。"""
     store = _store(name)
     doc = store.load()
     shot = next((s for s in doc["shots"] if s["id"] == shot_id), None)
     if shot is None:
         raise HTTPException(404, f"未知镜头 {shot_id}")
+    if shot.get("graph") and not force:
+        return {"ok": True, "task": task, "graph": shot["graph"]}
     refs = shot.get("refs") or []
     char = next((c for c in doc.get("characters", []) if c["id"] in refs), None)
     img = os.path.basename((char or {}).get("finals", ["input.png"])[0]) if char else "input.png"
@@ -372,6 +375,52 @@ async def upload_asset(name: str, request: Request, filename: str = "asset.png")
         raise HTTPException(400, "空文件")
     path = _store(name).save_asset(data, filename)
     return {"ok": True, "path": path}
+
+
+@app.post("/projects/{name}/undo")
+def undo(name: str):
+    """撤销最近一个可撤销变更:把它的逆操作作为新变更追加(线性历史,不删已产出 take)。"""
+    store = _store(name)
+    doc = store.load()
+    hist = doc.get("history", [])
+    last = next((c for c in reversed(hist) if not c.get("undone")), None)
+    if last is None:
+        raise HTTPException(400, "没有可撤销的变更")
+    if not last.get("undoable") or not last.get("inverse"):
+        raise HTTPException(400, f"#{last['seq']} 不可撤销(含已产出 take 或删除)")
+    try:
+        change = record_change(doc, last["inverse"], author="human", rationale=f"撤销 #{last['seq']}")
+    except OpError as e:
+        raise HTTPException(400, str(e))
+    last["undone"] = True
+    change["ts"] = time.time(); doc["history"][-1]["ts"] = change["ts"]
+    store._write(doc)
+    return {"ok": True, "seq": change["seq"], "undone": last["seq"]}
+
+
+# ---- 镜头编辑租约(单镜头单 actor 持笔;接管=转移租约)----
+LOCKS: dict = {}   # {("project","shot"): {"actor","ts"}}
+
+
+class LockIn(BaseModel):
+    actor: str = "human"   # human | agent
+
+
+@app.post("/projects/{name}/shots/{shot_id}/lock")
+def acquire_lock(name: str, shot_id: str, body: LockIn):
+    LOCKS[(name, shot_id)] = {"actor": body.actor, "ts": time.time()}
+    return {"ok": True, "shot": shot_id, "actor": body.actor}
+
+
+@app.delete("/projects/{name}/shots/{shot_id}/lock")
+def release_lock(name: str, shot_id: str):
+    LOCKS.pop((name, shot_id), None)
+    return {"ok": True, "shot": shot_id}
+
+
+@app.get("/projects/{name}/locks")
+def list_locks(name: str):
+    return {"locks": {sid: v for (p, sid), v in LOCKS.items() if p == name}}
 
 
 @app.get("/projects/{name}/state")
