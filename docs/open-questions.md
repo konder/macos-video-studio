@@ -48,6 +48,13 @@ A1 显示 IPAdapter/InstantID/PuLID 未装、且对本机 2026 新基模未必�
   **倾向**：视频一致性 MVP 走参考条件（云 reference-to-video 或本地 WAN Phantom）可能比本机 LoRA 更省力、上限更高；
   LoRA 留给需要高保真的主角。待 ① WAN i2v 链路验证 ② 参考条件实测后定 MVP 默认法。
 
+### A6. 算力拓扑：多本地后端 + 路由 —— ✅ 已定（2026-06，spike 引出）
+不止一台本地算力，产品需支持**多本地后端**。Orchestrator 维护后端注册表，按「延迟敏感度 + 显存 + 能力 + 成本」路由：
+- **5090 32G** = 快速交互层（图像 / i2v / 选片）。
+- **DGX Spark GB10 128G** = 大显存·延迟容忍层（**角色 LoRA 高分辨率训练**、放不进 32G 的大模型、过夜批处理；带宽低生成慢，故不做交互）。
+- **云** = reference-to-video / 突发 / 不自托管的模型。
+细节见 [architecture.md](architecture.md) §3。是 [pipeline.md](pipeline.md) 本地/云路由的细化（本地再分两层）。**角色 LoRA 训练默认放 DGX**（破 5090 的 256² 上限）。
+
 ### A3. 云接入方式 —— ✅ 已定（2026-06）
 即梦**走火山引擎官方 API**；Qwen 走 DashScope。**新发现**：ComfyUI 已带 Kling/Runway/Luma/Veo/Sora/Vidu
 partner 节点（配 key 即用）→ 国际厂商优先**直接作为图节点**调用，省自研适配器；即梦无 partner 节点，仍走
