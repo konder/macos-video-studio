@@ -75,6 +75,16 @@ struct API {
     }
     func job(_ id: String) async throws -> Job { try await get("jobs/\(id)") }
 
+    func estimate(task: String, backend: String, duration: Int = 5) async throws -> Estimate {
+        struct In: Encodable { let task: String; let backend: String; let duration: Int }
+        return try await post("graphs/estimate", In(task: task, backend: backend, duration: duration))
+    }
+    /// 生成镜头视频(local/cloud);云未确认时返回 needs_confirm+estimate(费用闸)。
+    func generate(project: String, shot: String, backend: String, confirm: Bool) async throws -> GenerateResult {
+        struct In: Encodable { let backend: String; let confirm: Bool }
+        return try await post("projects/\(project)/shots/\(shot)/generate", In(backend: backend, confirm: confirm))
+    }
+
     /// 构建 SSE 对话请求(调用方用 URLSession.bytes 读流)。
     func chatRequest(message: String, project: String) throws -> URLRequest {
         var req = URLRequest(url: try url("chat"))

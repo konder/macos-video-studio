@@ -48,7 +48,17 @@ struct Meta: Codable, Hashable {
     let resolution: String?
     let fps: Int?
     let style: String?
+    let cost_total: Double?
 }
+
+struct Estimate: Codable, Hashable {
+    let backend: String?
+    let seconds: Int?
+    let cost: Double?
+    let currency: String?
+    let note: String?
+}
+struct GenerateResult: Codable { let needs_confirm: Bool?; let estimate: Estimate?; let job_id: String? }
 
 struct Character: Codable, Identifiable, Hashable {
     let id: String

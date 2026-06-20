@@ -164,6 +164,28 @@ struct ContentView: View {
         .preferredColorScheme(.dark)
         .task { await state.connect() }
         .sheet(isPresented: $showSettings) { SettingsSheet() }
+        .sheet(item: $state.cloudConfirm) { c in CloudConfirmSheet(confirm: c) }
+    }
+}
+
+// 费用闸:云调用前先确认估算
+struct CloudConfirmSheet: View {
+    @EnvironmentObject var state: AppState
+    let confirm: AppState.CloudConfirm
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("云生成 · 费用确认").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.ink)
+            HStack(spacing: 16) {
+                VStack(alignment: .leading) { Text("预估时长").font(.system(size: 11)).foregroundStyle(Theme.inkSoft); Text("\(confirm.est.seconds ?? 0)s").font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.ink) }
+                VStack(alignment: .leading) { Text("预估费用").font(.system(size: 11)).foregroundStyle(Theme.inkSoft); Text("¥\(String(format: "%.2f", confirm.est.cost ?? 0))").font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.accent) }
+            }
+            if let n = confirm.est.note { Text(n).font(.system(size: 11)).foregroundStyle(Theme.inkSoft) }
+            HStack {
+                Spacer()
+                Button("取消") { state.cloudConfirm = nil }
+                Button("确认并生成") { Task { await state.confirmCloud() } }.buttonStyle(.borderedProminent).tint(Theme.accent)
+            }
+        }.padding(20).frame(width: 380).background(Theme.bg)
     }
 }
 
@@ -181,6 +203,9 @@ struct GlobalActivityBar: View {
                 Text(state.activity.isEmpty ? "处理中…" : state.activity).font(.system(size: 11)).foregroundStyle(Theme.accent)
             }
             Spacer()
+            if state.totalCost > 0 {
+                Text("累计 ¥\(String(format: "%.2f", state.totalCost))").font(.system(size: 11)).foregroundStyle(Theme.accent)
+            }
             Text(state.project).font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
         }
         .padding(.horizontal, 14).frame(height: 26).background(Theme.sidebar)
@@ -734,6 +759,16 @@ struct ShotDetail: View {
                 if let sp = s.scene_prompt { labeled("画面 prompt", sp) }
                 if let mp = s.motion_prompt { labeled("运动 prompt", mp) }
             }.card()
+            // 生成视频(本地/云,云走费用闸)
+            HStack(spacing: 8) {
+                Button { Task { await state.generate(shot: s.id, backend: "local") } } label: {
+                    Label("本地生成", systemImage: "bolt.fill").font(.system(size: 12))
+                }.buttonStyle(.borderedProminent).tint(Theme.accent).disabled(state.busy || s.keyframe == nil)
+                Button { Task { await state.generate(shot: s.id, backend: "cloud") } } label: {
+                    Label("云生成", systemImage: "cloud.fill").font(.system(size: 12))
+                }.buttonStyle(.bordered).tint(Theme.inkSoft).disabled(state.busy || s.keyframe == nil)
+                if s.keyframe == nil { Text("需先有关键帧").font(.system(size: 11)).foregroundStyle(Theme.inkSoft) }
+            }
             // 任务 → 钻进技术层(节点图)
             HStack(spacing: 8) {
                 taskChip("生成", "keyframe_edit")

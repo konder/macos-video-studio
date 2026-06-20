@@ -14,6 +14,8 @@ import os
 import queue
 import threading
 import time
+import urllib.parse
+import urllib.request
 
 from fastapi import FastAPI, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, StreamingResponse
@@ -24,11 +26,12 @@ from .backends import BackendRegistry
 from .comfy import ComfyClient
 from .config import settings
 from .director import produce_film
+from .estimate import estimate as estimate_task
 from .export import export_project
 from .jobs import JOBS
 from .ops import OpError, apply_project_ops, record_change
 from .recipes import RecipeRegistry
-from .store import ProjectStore
+from .store import ProjectStore, _nid
 from .tools import Context, run_ir, validate_ir
 
 app = FastAPI(title="ReelForge Orchestrator")
@@ -126,6 +129,92 @@ def graph_run(body: GraphIn):
 
     threading.Thread(target=work, daemon=True).start()
     return {"ok": True, "job_id": jid}
+
+
+# ---- 预估(耗时/费用,费用闸用) ----
+class EstimateIn(BaseModel):
+    task: str = "i2v_local"
+    backend: str = "local-5090"
+    duration: int = 5
+
+
+@app.post("/graphs/estimate")
+def graph_estimate(body: EstimateIn):
+    return estimate_task(body.task, body.backend, body.duration)
+
+
+# ---- 单镜头生成(本地/云,带费用闸:云需先确认估算) ----
+class GenerateIn(BaseModel):
+    backend: str = "local"      # local | cloud
+    confirm: bool = False       # 云调用须 confirm=True(已看过估算)
+
+
+@app.post("/projects/{name}/shots/{shot_id}/generate")
+def generate_shot(name: str, shot_id: str, body: GenerateIn):
+    """从关键帧生成视频 take。云后端先返回估算等确认(confirm=False),确认后才跑并计费。"""
+    store = _store(name)
+    doc = store.load()
+    shot = next((s for s in doc.get("shots", []) if s["id"] == shot_id), None)
+    if shot is None:
+        raise HTTPException(404, f"未知镜头 {shot_id}")
+    if not shot.get("keyframe"):
+        raise HTTPException(400, "该镜头还没有关键帧,无法生成视频")
+    is_cloud = body.backend == "cloud"
+    est = estimate_task("i2v_local", "cloud-volcano" if is_cloud else "local-5090")
+    if is_cloud and not body.confirm:
+        return {"needs_confirm": True, "estimate": est}   # 费用闸:先确认
+
+    jid = JOBS.create("i2v", name, total=1, message="生成视频…")
+    motion = shot.get("motion_prompt") or "the subject moves naturally, gentle camera motion"
+    keyframe = shot["keyframe"]
+
+    def work():
+        JOBS.update(jid, status="running")
+        try:
+            if is_cloud:
+                base = os.environ.get("PUBLIC_MEDIA_BASE", "")
+                if not base:
+                    raise RuntimeError("云生成需公网图床:设 PUBLIC_MEDIA_BASE(关键帧须外部可达)")
+                from .cloud import get_volcano
+                kf_url = base.rstrip("/") + "/media?path=" + urllib.parse.quote(keyframe, safe="")
+                out = get_volcano().i2v(kf_url, motion, duration=5)
+                vid = urllib.request.urlopen(out["video_url"], timeout=180).read()
+                path = store.save_asset(vid, f"{shot_id}_cloud_{int(time.time())}.mp4")
+                JOBS.add_cost(jid, est["cost"])
+                d = store.load()
+                record_change(d, [{"op": "add_take", "shot": shot_id, "take": _nid("take"),
+                                   "video": path, "meta": {"backend": "cloud-volcano",
+                                   "recipe": "seedance-i2v", "cost": est["cost"]}}],
+                              author="agent", rationale="云生成 take")
+                total = round(float((d.get("meta") or {}).get("cost_total", 0)) + est["cost"], 2)
+                record_change(d, [{"op": "set_meta", "key": "cost_total", "value": total}],
+                              author="agent", rationale=f"云计费 ¥{est['cost']}")
+                d["history"][-1]["ts"] = time.time()
+                store._write(d)
+            else:
+                comfy = _registry.route("i2v").client
+                from .pipeline import _upload
+                iv = _upload(comfy, keyframe)
+                ir = _recipes.instantiate("i2v_local", {"input_image": iv, "seed": 42,
+                                          "motion_prompt": motion, "filename_prefix": f"{shot_id}_take"})
+                errs = validate_ir(ir, comfy.object_info())
+                if errs:
+                    raise RuntimeError(str(errs))
+                res = run_ir(ir, comfy, store)
+                if not res.get("assets"):
+                    raise RuntimeError(res.get("error", "i2v 无产物"))
+                d = store.load()
+                record_change(d, [{"op": "add_take", "shot": shot_id, "take": _nid("take"),
+                                   "video": res["assets"][0], "meta": {"backend": "local-5090",
+                                   "recipe": "i2v_local"}}], author="human", rationale="本地生成 take")
+                d["history"][-1]["ts"] = time.time()
+                store._write(d)
+            JOBS.update(jid, status="done", message="完成")
+        except Exception as e:  # noqa: BLE001
+            JOBS.update(jid, status="error", error=str(e), message=f"失败: {e}")
+
+    threading.Thread(target=work, daemon=True).start()
+    return {"ok": True, "job_id": jid, "estimate": est}
 
 
 # ---- 成片(导演 Agent:剧本→多镜头) ----

@@ -40,6 +40,11 @@ final class AppState: ObservableObject {
     var characters: [Character] { detail?.characters ?? [] }
     var assets: [Asset] { detail?.assets ?? [] }
     var history: [Change] { (detail?.history ?? []).reversed() }   // 最新在上
+    var totalCost: Double { detail?.meta?.cost_total ?? 0 }
+
+    // 云生成费用确认(费用闸)
+    struct CloudConfirm: Identifiable { let id = UUID(); let shot: String; let est: Estimate }
+    @Published var cloudConfirm: CloudConfirm?
     func character(_ id: String) -> Character? { characters.first { $0.id == id } }
     func asset(_ id: String) -> Asset? { assets.first { $0.id == id } }
     func shot(_ id: String) -> Shot? { shots.first { $0.id == id } }
@@ -208,6 +213,31 @@ final class AppState: ObservableObject {
         if let s = similarity { ops.append(["op": "set_character_field", "id": id, "field": "similarity", "value": s]) }
         do { try await api.submitChange(project: project, ops: ops, author: "human", rationale: "更新角色档案"); await loadDetail() }
         catch { chatLog.append("❌ 更新失败: \(error.localizedDescription)") }
+    }
+
+    /// 从关键帧生成视频 take(本地或云)。云未确认→弹费用确认;确认后跑作业并轮询。
+    func generate(shot: String, backend: String = "local", confirm: Bool = false) async {
+        busy = true; activity = "生成视频…"; defer { busy = false; activity = "" }
+        do {
+            let r = try await api.generate(project: project, shot: shot, backend: backend, confirm: confirm)
+            if r.needs_confirm == true, let e = r.estimate {
+                cloudConfirm = CloudConfirm(shot: shot, est: e); return
+            }
+            guard let jid = r.job_id else { return }
+            while true {
+                try await Task.sleep(nanoseconds: 1_500_000_000)
+                let j = try await api.job(jid)
+                activity = j.message ?? "处理中…"
+                if j.status == "done" { break }
+                if j.status == "error" { chatLog.append("❌ \(j.error ?? "生成失败")"); break }
+            }
+            await loadDetail()
+        } catch { chatLog.append("❌ 生成失败: \(error.localizedDescription)") }
+    }
+    func confirmCloud() async {
+        guard let c = cloudConfirm else { return }
+        cloudConfirm = nil
+        await generate(shot: c.shot, backend: "cloud", confirm: true)
     }
 
     /// 钻进镜头的「生成」任务 → 节点画布(技术层)。
