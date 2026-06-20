@@ -527,6 +527,7 @@ def compose_asset(name: str, body: ComposeIn):
     if not refs:
         raise HTTPException(400, "所选资产没有可用图")
     aid = _nid("cmps")
+    style = (doc.get("meta") or {}).get("style", "realistic")
     src_names = [ (ent_of(i) or {}).get("name", "") for i in body.asset_ids ]
     prompt = body.prompt or ("combine the references into one cohesive image, keep each subject's "
                              "identity, outfit and design consistent; " + ", ".join(filter(None, src_names)))
