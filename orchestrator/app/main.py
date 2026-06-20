@@ -139,6 +139,31 @@ def shot_ops(name: str, shot_id: str, body: OpsIn):
     return {"ok": True, "graph": new_ir}
 
 
+# ---- 选片 ----
+class SelectIn(BaseModel):
+    take_id: str
+
+
+@app.post("/projects/{name}/shots/{shot_id}/select")
+def select_take(name: str, shot_id: str, body: SelectIn):
+    store = _store(name)
+    try:
+        store.select_take(shot_id, body.take_id)
+    except KeyError as e:
+        raise HTTPException(404, str(e))
+    return {"ok": True, "shot": shot_id, "selected_take": body.take_id}
+
+
+# ---- 云接入状态(阶段6) ----
+@app.get("/cloud/status")
+def cloud_status():
+    from .cloud import load_providers
+    provs = load_providers()
+    return {"direct_providers": {n: p.configured for n, p in provs.items()},
+            "partner_note": "Kling/Vidu/Runway/Luma/Veo 等 partner 节点的 key 配在 ComfyUI,"
+                            "作 i2v_cloud 配方经 run_ir 调用(无需本服务 endpoint)"}
+
+
 # ---- 导出工程(有序片段 + FCPXML) ----
 @app.post("/projects/{name}/export")
 def export(name: str):
