@@ -46,6 +46,7 @@ struct API {
     func shots(project: String) async throws -> [Shot] {
         (try await get("projects/\(project)/shots") as ShotsResponse).shots
     }
+    func project(_ name: String) async throws -> ProjectDetail { try await get("projects/\(name)") }
     func makeFilm(_ req: FilmRequest) async throws -> FilmResponse { try await post("films", req) }
     func selectTake(project: String, shot: String, take: String) async throws {
         struct Sel: Encodable { let take_id: String }

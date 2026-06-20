@@ -18,19 +18,60 @@ struct Recipe: Codable, Identifiable, Hashable {
     let stage: String?
 }
 
+struct TakeMeta: Codable, Hashable {
+    let backend: String?
+    let recipe: String?
+    let seed: Int?
+}
+
 struct Take: Codable, Identifiable, Hashable {
     let id: String
     let video: String?
+    let meta: TakeMeta?
 }
 
 struct Shot: Codable, Identifiable, Hashable {
     let id: String
     let script: String?
+    let refs: [String]?
     let scene_prompt: String?
     let motion_prompt: String?
     let keyframe: String?
     let selected_take: String?
     let takes: [Take]?
+}
+
+// ---- 项目元素(构成视频的全部)----
+struct Meta: Codable, Hashable {
+    let title: String?
+    let aspect: String?
+    let resolution: String?
+    let fps: Int?
+    let style: String?
+}
+
+struct Character: Codable, Identifiable, Hashable {
+    let id: String
+    let name: String
+    let source: String?
+    let finals: [String]?
+    let trigger: String?
+    let lora: String?
+}
+
+struct Asset: Codable, Identifiable, Hashable {
+    let id: String
+    let type: String       // wardrobe / prop / environment / styleframe
+    let name: String
+    let prompt: String?
+    let finals: [String]?
+}
+
+struct ProjectDetail: Codable {
+    let meta: Meta?
+    let characters: [Character]?
+    let assets: [Asset]?
+    let shots: [Shot]?
 }
 
 struct ProjectsList: Codable { let projects: [String] }

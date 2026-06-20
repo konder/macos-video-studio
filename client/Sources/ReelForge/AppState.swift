@@ -1,6 +1,18 @@
 import Foundation
 import SwiftUI
 
+// 中间区当前选中的项目元素。
+enum Sel: Hashable {
+    case overview
+    case characters, assets, shotsRoot   // 分组标题(展示该类画廊)
+    case character(String)
+    case asset(String)
+    case shot(String)
+    case timeline
+}
+
+enum ViewMode: String { case director = "导演", technical = "技术" }
+
 @MainActor
 final class AppState: ObservableObject {
     @Published var baseURL = "http://10.10.10.2:8000"  // 已部署的 Orchestrator(systemd)
@@ -11,8 +23,23 @@ final class AppState: ObservableObject {
     @Published var recipes: [Recipe] = []
     @Published var projects: [String] = []
     @Published var shots: [Shot] = []
+    @Published var detail: ProjectDetail?           // 当前项目完整元素
     @Published var chatLog: [String] = []
     @Published var busy = false
+
+    // 导航 / 布局
+    @Published var selection: Sel = .overview
+    @Published var expanded: Set<String> = []       // 树展开节点 key
+    @Published var leftCollapsed = false
+    @Published var rightCollapsed = false
+    @Published var viewMode: ViewMode = .director
+
+    var characters: [Character] { detail?.characters ?? [] }
+    var assets: [Asset] { detail?.assets ?? [] }
+    func character(_ id: String) -> Character? { characters.first { $0.id == id } }
+    func asset(_ id: String) -> Asset? { assets.first { $0.id == id } }
+    func shot(_ id: String) -> Shot? { shots.first { $0.id == id } }
+    func toggle(_ key: String) { if expanded.contains(key) { expanded.remove(key) } else { expanded.insert(key) } }
 
     // 生成成片表单
     @Published var characterImage = "projects/demo/assets/char_concept_00004_.png"
@@ -46,7 +73,8 @@ final class AppState: ObservableObject {
             backends = try await api.backends()
             recipes = try await api.recipes()
             await loadProjects()
-            await refreshShots()
+            expanded.insert("p:" + project)
+            await loadDetail()
         } catch { status = "连接失败: \(error.localizedDescription)" }
     }
 
@@ -59,7 +87,18 @@ final class AppState: ObservableObject {
 
     func selectProject(_ name: String) async {
         project = name
-        await refreshShots()
+        selection = .overview
+        expanded.insert("p:" + name)
+        await loadDetail()
+    }
+
+    /// 拉取完整项目元素(meta/角色/资产/分镜)。
+    func loadDetail() async {
+        do {
+            let d = try await api.project(project)
+            detail = d
+            shots = d.shots ?? []
+        } catch { /* 项目可能尚无内容 */ }
     }
 
     func newProject(_ name: String) async {
@@ -69,9 +108,7 @@ final class AppState: ObservableObject {
         catch { chatLog.append("❌ 新建项目失败: \(error.localizedDescription)") }
     }
 
-    func refreshShots() async {
-        do { shots = try await api.shots(project: project) } catch { /* 项目可能尚无分镜 */ }
-    }
+    func refreshShots() async { await loadDetail() }
 
     func makeFilm() async {
         busy = true; defer { busy = false }
