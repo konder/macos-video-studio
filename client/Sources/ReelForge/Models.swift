@@ -6,6 +6,9 @@ struct Backend: Codable, Identifiable, Hashable {
     let name: String
     let kind: String?
     let url: String?
+    let latency: String?
+    let vram_gb: Int?
+    let caps: [String]?
     var id: String { name }
 }
 

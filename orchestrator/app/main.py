@@ -8,7 +8,10 @@
 """
 from __future__ import annotations
 
+import os
+
 from fastapi import FastAPI, HTTPException
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from .agent import make_client, run_agent
@@ -162,6 +165,16 @@ def cloud_status():
     return {"direct_providers": {n: p.configured for n, p in provs.items()},
             "partner_note": "Kling/Vidu/Runway/Luma/Veo 等 partner 节点的 key 配在 ComfyUI,"
                             "作 i2v_cloud 配方经 run_ir 调用(无需本服务 endpoint)"}
+
+
+# ---- 媒体服务(给客户端显示关键帧/视频;限项目目录内,防穿越) ----
+@app.get("/media")
+def media(path: str):
+    base = os.path.abspath(settings.projects_dir)
+    full = os.path.abspath(path) if os.path.isabs(path) else os.path.abspath(os.path.join(os.getcwd(), path))
+    if not full.startswith(base) or not os.path.isfile(full):
+        raise HTTPException(404, "media not found")
+    return FileResponse(full)
 
 
 # ---- 导出工程(有序片段 + FCPXML) ----

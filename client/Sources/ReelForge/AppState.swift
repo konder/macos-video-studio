@@ -21,6 +21,21 @@ final class AppState: ObservableObject {
 
     private var api: API { API(base: baseURL) }
 
+    /// 规范化后的 base(补 http://、去尾斜杠),用于拼媒体 URL。
+    var apiBase: String {
+        var s = baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        if !s.contains("://") { s = "http://" + s }
+        while s.hasSuffix("/") { s.removeLast() }
+        return s
+    }
+
+    /// 把服务端文件路径(keyframe/take.video)转成可访问的媒体 URL。
+    func mediaURL(_ path: String?) -> URL? {
+        guard let p = path, !p.isEmpty,
+              let enc = p.addingPercentEncoding(withAllowedCharacters: .alphanumerics) else { return nil }
+        return URL(string: "\(apiBase)/media?path=\(enc)")
+    }
+
     func connect() async {
         busy = true; defer { busy = false }
         do {
