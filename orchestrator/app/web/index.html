@@ -410,7 +410,7 @@ function showModal(c,raw){const m=document.getElementById('modal');m.innerHTML='
 function closeModal(){document.getElementById('modal').innerHTML='';}
 
 // ---------- AGENT(对话 + react 过程)----------
-const TOOLCN={search_recipes:'检索配方',instantiate_recipe:'实例化流程',set_param:'改参数',add_node:'加节点',connect:'连线',delete_node:'删节点',estimate:'预估',validate:'校验',run:'执行出图',create_asset:'创建资产'};
+const TOOLCN={search_recipes:'检索配方',instantiate_recipe:'实例化流程',set_param:'改参数',add_node:'加节点',connect:'连线',delete_node:'删节点',estimate:'预估',validate:'校验',run:'执行出图',create_asset:'创建资产',list_assets:'查看已有资产',update_asset:'修改并重生成资产'};
 function renderRight(){
   const rb=document.getElementById('rightBody');
   rb.innerHTML=S.chat.map(m=>{
@@ -422,9 +422,11 @@ function renderRight(){
   rb.scrollTop=rb.scrollHeight;
 }
 async function sendChat(){const ipt=document.getElementById('chatInput');const t=ipt.value.trim();const att=S.chatAttach;if(!t&&!att)return;ipt.value='';
+  const hist=S.chat.filter(m=>m.text&&m.text!=='…').slice(-10).map(m=>({role:m.role==='user'?'user':'assistant',content:m.text}));
   const userText=t+(att?' [附参考图]':'');S.chat.push({role:'user',text:userText});
-  const ai={role:'ai',steps:[],text:''};S.chat.push(ai);S.chatAttach=null;renderAttach();setBusy(true,'Agent 思考中…');renderRight();
-  try{const resp=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t,project:S.project,image:att?att.path:null})});
+  const ai={role:'ai',steps:[],text:''};
+  S.chat.push(ai);S.chatAttach=null;renderAttach();setBusy(true,'Agent 思考中…');renderRight();
+  try{const resp=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t,project:S.project,image:att?att.path:null,history:hist})});
     const rd=resp.body.getReader(),dec=new TextDecoder();let buf='',ev='message';
     while(true){const {value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});const parts=buf.split('\n\n');buf=parts.pop();
       for(const p of parts)for(const line of p.split('\n')){if(line.startsWith('event:'))ev=line.slice(6).trim();

@@ -689,19 +689,20 @@ class ChatIn(BaseModel):
     message: str
     project: str = "demo"
     image: str | None = None        # 粘贴的参考图(项目内路径);附给 Agent 作参考
+    history: list[dict] | None = None  # 多轮上下文 [{role, content}]
 
 
 @app.post("/chat")
 def chat(body: ChatIn):
     """搭图 Agent 对话 → SSE 流式(api-contract):tool_call/tool_result/message/done。
-    Agent 在后台线程跑,事件经线程安全队列流出。"""
+    Agent 在后台线程跑,事件经线程安全队列流出。多轮上下文经 history 传入。"""
     q: "queue.Queue" = queue.Queue()
     msg = body.message + (f"\n[用户附带参考图: {body.image}]" if body.image else "")
 
     def work():
         try:
             ctx = Context(ComfyClient(), _recipes, _store(body.project))
-            text, _ = run_agent(msg, ctx, on_event=q.put)
+            text, _ = run_agent(msg, ctx, on_event=q.put, history=body.history)
             q.put({"type": "message", "text": text, "graph": ctx.graph})
         except Exception as e:  # noqa: BLE001
             q.put({"type": "error", "error": str(e)})

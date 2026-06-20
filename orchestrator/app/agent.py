@@ -32,8 +32,13 @@ SYSTEM = """你是 ReelForge 的「搭图 Agent」。目标:把用户的自然�
 挂好生成流程、执行、把产物回填为预览。**不要**用 search_recipes/instantiate/run 那套散图流程去做资产。
 上面的 1–6 步(配方→改图→run)用于非资产的临时出图或在技术层精修已有流程。
 
+**多轮**:如果用户是在**细化/修改上一轮刚做的资产**(如"我意思是办公室工服""换成红色""再瘦一点"),
+不要新建!先用 list_assets 找到那个资产,再用 update_asset(asset_id, prompt) 改它的描述并重生成。
+
 信息不足(如分辨率、写实/二次元)时可简要澄清,但能合理默认就别多问。
-你与人编辑的是同一份图(同一套 op,无特权);完成后用中文简述:配方、关键参数、为什么这么搭、产物在哪。"""
+
+**回复格式**:给用户的回复只用**一两句自然中文**说清:做了什么、产物在哪(资产库)、可继续做什么。
+**不要**输出表格、JSON、markdown 标题、参数罗列那些(那是给系统的,用户不需要看)。"""
 
 
 def _openai_tools() -> list[dict]:
@@ -71,15 +76,17 @@ def run_agent(
     ctx: tools.Context,
     on_event: Callable[[dict], None] | None = None,
     max_iters: int = 12,
+    history: list[dict] | None = None,
 ) -> tuple[str, tools.Context]:
     if not settings.model:
         raise RuntimeError("缺少 AGENT_MODEL（要使用的 LiteLLM 模型名，见 list_models）")
     client = make_client()
     openai_tools = _openai_tools()
-    messages: list[dict] = [
-        {"role": "system", "content": SYSTEM},
-        {"role": "user", "content": user_message},
-    ]
+    messages: list[dict] = [{"role": "system", "content": SYSTEM}]
+    for h in (history or [])[-10:]:   # 近 10 轮上下文(多轮对话)
+        if h.get("content"):
+            messages.append({"role": "assistant" if h.get("role") == "assistant" else "user", "content": h["content"]})
+    messages.append({"role": "user", "content": user_message})
 
     for _ in range(max_iters):
         resp = client.chat.completions.create(

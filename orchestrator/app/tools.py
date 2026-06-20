@@ -103,8 +103,25 @@ TOOL_SCHEMAS = [
         "input_schema": {"type": "object", "properties": {}, "required": []},
     },
     {
+        "name": "list_assets",
+        "description": "列出当前项目已有的资产/角色(id/类型/名称/提示词)。用户细化/修改时先用它找到目标资产。",
+        "input_schema": {"type": "object", "properties": {}, "required": []},
+    },
+    {
+        "name": "update_asset",
+        "description": "修改已有资产并重新生成(用于用户细化上一轮:改描述/换色/换款式等)。不要为修改而新建。",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "asset_id": {"type": "string", "description": "目标资产 id(来自 list_assets)"},
+                "prompt": {"type": "string", "description": "新的身份/外观描述(只写内容,不写姿势/画风/背景/视角)"},
+            },
+            "required": ["asset_id", "prompt"],
+        },
+    },
+    {
         "name": "create_asset",
-        "description": "创建一个资产(角色/服装/道具/场景/风格)的完整动作:在当前项目里**先建出该资产**"
+        "description": "创建一个**新**资产(角色/服装/道具/场景/风格)的完整动作:在当前项目里**先建出该资产**"
                        "(立刻出现在资产库/左侧树)→ 用文字实例化它的生成流程 → 执行 → 把产物回填为预览图。"
                        "用户说'生成一个角色/做个场景'等就用它,一步到位。",
         "input_schema": {
@@ -190,6 +207,36 @@ def dispatch(name: str, args: dict, ctx: Context) -> str:
         res = run_ir(ctx.graph, ctx.comfy, ctx.store)
         ctx.last_assets = res.get("assets", []) or []
         return json.dumps(res, ensure_ascii=False)
+
+    if name == "list_assets":
+        doc = ctx.store.load()
+        items = [{"id": c["id"], "type": "character", "name": c.get("name"), "prompt": c.get("prompt", "")} for c in doc.get("characters", [])]
+        items += [{"id": a["id"], "type": a.get("type"), "name": a.get("name"), "prompt": a.get("prompt", "")} for a in doc.get("assets", [])]
+        return json.dumps(items, ensure_ascii=False)
+
+    if name == "update_asset":
+        from .pipeline import generate_asset_images
+        from .recipes import asset_dims
+        aid = args["asset_id"]; new_prompt = args.get("prompt", "")
+        doc = ctx.store.load()
+        ent = next((c for c in doc.get("characters", []) if c["id"] == aid), None)
+        is_char = ent is not None
+        if ent is None:
+            ent = next((a for a in doc.get("assets", []) if a["id"] == aid), None)
+        if ent is None:
+            return f"Error: 未找到资产 {aid}"
+        atype = "character" if is_char else ent.get("type", "prop")
+        style = (doc.get("meta") or {}).get("style", "realistic")
+        dw, dh = asset_dims(atype); w, h = ent.get("width") or dw, ent.get("height") or dh
+        field = "set_character_field" if is_char else "set_asset_field"
+        _commit_ctx(ctx, [{"op": field, "id": aid, "field": "prompt", "value": new_prompt}], f"修改资产描述 {ent.get('name')}")
+        try:
+            finals, _ = generate_asset_images(ctx.comfy, ctx.recipes, ctx.store, atype, new_prompt, style, w, h, random.randint(1, 2_000_000_000))
+        except Exception as e:  # noqa: BLE001
+            return json.dumps({"ok": False, "asset_id": aid, "error": str(e)}, ensure_ascii=False)
+        ctx.last_assets = finals
+        _commit_ctx(ctx, [{"op": field, "id": aid, "field": "finals", "value": finals}], "重生成资产")
+        return json.dumps({"ok": True, "asset_id": aid, "finals": finals}, ensure_ascii=False)
 
     if name == "create_asset":
         # 完整动作:先建实体(入树)→ 执行(角色=分3次单人全身)→ 回填预览。经 op 入历史(与人同构)。
