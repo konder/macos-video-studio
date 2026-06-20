@@ -37,6 +37,7 @@
   .treerow:hover{background:var(--fill)}
   .treerow.sel{background:var(--blue-fill);color:var(--blue-d);font-weight:600}
   .treerow svg{width:15px;height:15px;flex:none}
+  .addbtn{color:var(--t4);opacity:0}.treerow:hover .addbtn{opacity:1}.addbtn:hover{background:var(--fill2);color:var(--blue)}
   .scroll{overflow:auto}
   .scroll::-webkit-scrollbar{width:8px;height:8px}.scroll::-webkit-scrollbar-thumb{background:#d8d8e0;border-radius:4px}.scroll::-webkit-scrollbar-track{background:transparent}
   .spin{width:13px;height:13px;border:2px solid #d3d3db;border-top-color:var(--blue);border-radius:50%;animation:sp .7s linear infinite;display:inline-block;vertical-align:middle}
@@ -56,12 +57,7 @@
       <span class="ico" id="brandIco" style="color:var(--blue)"></span>
       <span style="font-weight:700;font-size:14.5px;letter-spacing:.2px">ReelForge</span>
     </div>
-    <div class="scroll" id="tree" style="flex:1;padding:2px 10px"></div>
-    <div style="padding:10px 12px"><button class="btn btn-pri" style="width:100%;justify-content:center" onclick="openNewAsset()"><span id="naIco"></span>新建资产</button></div>
-    <div style="border-top:1px solid var(--line);padding:8px 12px">
-      <div class="treerow" id="settingsRow" onclick="openSettings()">设置 · 服务连接</div>
-      <div class="row muted" style="font-size:11px;padding:5px 9px"><span class="dot" id="dot" style="background:var(--t4)"></span><span id="connText">未连接</span></div>
-    </div>
+    <div class="scroll" id="tree" style="flex:1;padding:2px 10px 12px"></div>
   </aside>
 
   <main class="pane" style="flex:1;min-width:440px">
@@ -91,7 +87,7 @@
 <div id="modal"></div>
 
 <script>
-const S={base:'',project:null,projects:[],detail:null,sel:{kind:'overview'},expanded:{p:true,char:true,asset:true,shot:true},
+const S={base:'',project:null,projects:[],detail:null,sel:{kind:'overview'},expanded:{p:true,asset:true,shot:true,g_character:true},
   chat:[],busy:false,model:'',backends:[],tab:'chat',graph:null,selNode:null};
 const TYPES={character:{cn:'角色',ico:'user',color:'#7a4ad0',fill:'#efe4ff'},wardrobe:{cn:'服装',ico:'shirt',color:'#2f8a4d',fill:'#e3f5e8'},
   prop:{cn:'道具',ico:'box',color:'#b8860b',fill:'#f6efdc'},environment:{cn:'场景',ico:'image',color:'#2f6a8a',fill:'#e3eef7'},styleframe:{cn:'风格',ico:'palette',color:'#b0418a',fill:'#f7e6f0'}};
@@ -130,17 +126,14 @@ function setBusy(b,msg){S.busy=b;document.getElementById('globalBusy').innerHTML
 
 // brand/static icons
 document.getElementById('brandIco').innerHTML=icon('film',18);
-document.getElementById('naIco').innerHTML=icon('plus',15);
 document.getElementById('agentIco').innerHTML=icon('spark',13);
 document.getElementById('sendIco').innerHTML=icon('send',14);
-document.getElementById('settingsRow').insertAdjacentHTML('afterbegin',icon('gear',15));
 
 async function connect(){
-  try{const h=await jget('/healthz');S.model=h.model||'';document.getElementById('dot').style.background='#28c840';
-    document.getElementById('connText').textContent='已连接';document.getElementById('footModel').textContent=S.model||'—';
+  try{const h=await jget('/healthz');S.model=h.model||'';document.getElementById('footModel').textContent=S.model||'—';
     S.backends=(await jget('/backends')).backends||[];await loadProjects();
     if(!S.project&&S.projects[0])S.project=S.projects[0];if(S.project)await loadDetail();render();
-  }catch(e){document.getElementById('connText').textContent='连接失败';}}
+  }catch(e){document.getElementById('footModel').textContent='连接失败';}}
 async function loadProjects(){S.projects=(await jget('/projects')).projects||[]}
 async function loadDetail(){if(!S.project)return;S.detail=await jget('/projects/'+S.project);document.getElementById('footProject').textContent=S.project;renderTree();renderMiddle();}
 async function selectProject(n){S.project=n;S.sel={kind:'overview'};S.graph=null;await loadDetail();render();}
@@ -152,6 +145,14 @@ function selIs(k,id){return S.sel.kind===k&&(id===undefined||S.sel.id===id)&&!S.
 function setSel(kind,id){S.sel={kind,id};S.graph=null;S.selNode=null;render()}
 
 // ---------- TREE ----------
+const FIXED=['wardrobe','prop','environment'];
+const ASSET_GROUPS=[
+  {key:'character',cn:'角色',ico:'user',type:'character',sel:{kind:'characters'},list:()=>chars(),leafKind:'character'},
+  {key:'wardrobe',cn:'服装',ico:'shirt',type:'wardrobe',sel:{kind:'assetgroup',id:'wardrobe'},list:()=>assets().filter(a=>a.type==='wardrobe'),leafKind:'asset'},
+  {key:'prop',cn:'道具',ico:'box',type:'prop',sel:{kind:'assetgroup',id:'prop'},list:()=>assets().filter(a=>a.type==='prop'),leafKind:'asset'},
+  {key:'environment',cn:'场景',ico:'image',type:'environment',sel:{kind:'assetgroup',id:'environment'},list:()=>assets().filter(a=>a.type==='environment'),leafKind:'asset'},
+  {key:'custom',cn:'自定义',ico:'palette',type:'__custom__',sel:{kind:'assetgroup',id:'custom'},list:()=>assets().filter(a=>!FIXED.includes(a.type)),leafKind:'asset'},
+];
 function renderTree(){
   const t=document.getElementById('tree');t.innerHTML='';
   S.projects.forEach(p=>{const cur=p===S.project;
@@ -159,11 +160,13 @@ function renderTree(){
     r.onclick=()=>cur?(S.expanded.p=!S.expanded.p,renderTree()):selectProject(p);t.appendChild(r);
     if(cur&&S.expanded.p){
       t.appendChild(leaf(icon('grid',14),'概览','overview',1));
-      t.appendChild(group(icon('user',14),'角色','char',chars().length,'characters'));
-      if(S.expanded.char)chars().forEach(c=>t.appendChild(leaf(dotIco('character'),c.name,'character',2,c.id)));
-      t.appendChild(group(icon('box',14),'资产','asset',assets().length,'assets'));
-      if(S.expanded.asset)assets().forEach(a=>t.appendChild(leaf(dotIco(a.type),a.name,'asset',2,a.id)));
-      t.appendChild(group(icon('layers',14),'分镜','shot',shots().length,'shotsRoot'));
+      // 资产(父)→ 子分组(每组行内＋新增)
+      t.appendChild(parentRow(icon('box',14),'资产','asset','assets'));
+      if(S.expanded.asset) ASSET_GROUPS.forEach(g=>{
+        t.appendChild(subgroupRow(g));
+        if(S.expanded['g_'+g.key]) g.list().forEach(item=>t.appendChild(leaf(dotIco(g.type==='__custom__'?item.type:g.type),item.name,g.leafKind,3,item.id)));
+      });
+      t.appendChild(parentRow(icon('layers',14),'分镜','shot','shotsRoot'));
       if(S.expanded.shot)shots().forEach((s,i)=>t.appendChild(leaf(icon('image',14),'镜 '+(i+1),'shot',2,s.id)));
       t.appendChild(leaf(icon('export',14),'成片 / 导出','timeline',1));
     }});
@@ -171,9 +174,18 @@ function renderTree(){
 }
 function dotIco(type){const t=TYPES[type]||TYPES.prop;return `<span class="dot" style="width:8px;height:8px;background:${t.color};margin:0 3px"></span>`}
 function leaf(ic,label,kind,lv,id){const r=el(`<div class="treerow ${selIs(kind,id)?'sel':''}" style="padding-left:${lv*12+4}px"><span style="width:10px"></span>${ic}<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(label)}</span></div>`);r.onclick=()=>setSel(kind,id);return r}
-function group(ic,label,key,n,selKind){const open=S.expanded[key];
+// 父级(资产/分镜):展开 + 选中
+function parentRow(ic,label,key,selKind){const open=S.expanded[key];const n=key==='asset'?assets().length+chars().length:shots().length;
   const r=el(`<div class="treerow ${selIs(selKind)?'sel':''}" style="padding-left:16px"><span style="width:10px;color:var(--t4);font-size:10px">${open?'▾':'▸'}</span>${ic}<span style="flex:1">${esc(label)}</span><span class="muted" style="font-size:11px">${n}</span></div>`);
   r.onclick=()=>{S.sel={kind:selKind};S.graph=null;S.expanded[key]=!S.expanded[key];render()};return r}
+// 资产子分组:展开 + 选中 + 行内＋新增
+function subgroupRow(g){const open=S.expanded['g_'+g.key];const sel=!S.graph&&S.sel.kind===g.sel.kind&&(g.sel.id===undefined||S.sel.id===g.sel.id);
+  const r=el(`<div class="treerow ${sel?'sel':''}" style="padding-left:28px">
+    <span style="width:10px;color:var(--t4);font-size:10px">${open?'▾':'▸'}</span>${icon(g.ico,14)}<span style="flex:1">${g.cn}</span>
+    <span class="muted" style="font-size:11px">${g.list().length}</span>
+    <span class="addbtn" title="新增${g.cn}" style="display:inline-flex;padding:1px;border-radius:5px">${icon('plus',13)}</span></div>`);
+  r.querySelector('.addbtn').onclick=(e)=>{e.stopPropagation();openNewAsset(g.type)};
+  r.onclick=()=>{S.sel={...g.sel};S.graph=null;S.expanded['g_'+g.key]=!S.expanded['g_'+g.key];render()};return r}
 
 // ---------- MIDDLE ----------
 function crumb(){
@@ -181,6 +193,7 @@ function crumb(){
   const k=S.sel;if(k.kind==='character')return '角色 · '+esc(findEnt(k.id)?.name||k.id);
   if(k.kind==='asset')return '资产 · '+esc(findEnt(k.id)?.name||k.id);
   if(k.kind==='shot')return '镜 '+(shots().findIndex(s=>s.id===k.id)+1);
+  if(k.kind==='assetgroup')return esc(S.project||'')+' · 资产 · '+(k.id==='custom'?'自定义':(TYPES[k.id]?.cn||k.id));
   return esc(S.project||'')+' · '+({overview:'概览',characters:'角色',assets:'资产',shotsRoot:'分镜',timeline:'成片'}[k.kind]||'');
 }
 function renderMiddle(){
@@ -191,6 +204,7 @@ function renderMiddle(){
   if(k==='overview'||k==='shotsRoot')m.innerHTML=board();
   else if(k==='characters')m.innerHTML=gallery('character');
   else if(k==='assets')m.innerHTML=gallery('asset');
+  else if(k==='assetgroup')m.innerHTML=gallery(S.sel.id);
   else if(k==='character'||k==='asset')m.innerHTML=detail(findEnt(S.sel.id));
   else if(k==='shot')m.innerHTML=shotDetail(shots().find(s=>s.id===S.sel.id));
   else if(k==='timeline')m.innerHTML=timeline();
@@ -206,7 +220,7 @@ function bibleStrip(){
       <div style="font-size:11.5px;margin-top:5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.name)}</div>
       <div class="row" style="gap:4px;margin-top:2px"><span class="dot" style="width:6px;height:6px;background:${t.color}"></span><span class="muted" style="font-size:10px">${t.cn}</span></div></div>`}).join('');
   return `<div class="sec" style="margin-bottom:16px">
-    <div class="row" style="margin-bottom:12px"><span class="seclabel">Character Bible / 资产</span><span style="flex:1"></span><button class="btn" style="padding:5px 10px" onclick="openNewAsset()">${icon('plus',14)}新建</button></div>
+    <div class="row" style="margin-bottom:12px"><span class="seclabel">Character Bible / 资产</span><span style="flex:1"></span><span class="muted" style="font-size:11px">在左侧各分组「＋」新增</span></div>
     <div class="row scroll" style="gap:12px;padding-bottom:2px">${cells||'<span class="muted" style="font-size:12px">暂无资产 — 点「新建」或让 Agent 生成</span>'}</div></div>`;
 }
 function stagePill(state,label){ // 0未 1进行 2完成
@@ -224,12 +238,19 @@ function board(){
   return bibleStrip()+`<div class="row" style="margin:0 2px 10px"><span class="seclabel">分镜 · 制片</span><span class="muted" style="font-size:11px">(${shots().length})</span></div>`+
     (rows||`<div class="sec" style="text-align:center;padding:36px;color:var(--t4)"><div style="margin-bottom:8px">${icon('layers',30,'#cfcfd6')}</div>还没有分镜</div>`);
 }
-function gallery(g){
-  const list=g==='character'?chars().map(c=>({...c,_t:'character'})):assets().map(a=>({...a,_t:a.type}));
-  const cells=list.map(x=>`<div class="sec" style="padding:10px;cursor:pointer" onclick="setSel('${g==='character'?'character':'asset'}','${x.id}')">
+function gallery(mode){
+  // mode: character | asset(全部) | custom | <type>
+  let list,leafKind='asset',addType=mode,title;
+  if(mode==='character'){list=chars().map(c=>({...c,_t:'character'}));leafKind='character';addType='character';title='角色';}
+  else if(mode==='asset'){list=assets().map(a=>({...a,_t:a.type}));addType=null;title='资产';}
+  else if(mode==='custom'){list=assets().filter(a=>!FIXED.includes(a.type)).map(a=>({...a,_t:a.type}));addType='__custom__';title='自定义';}
+  else{list=assets().filter(a=>a.type===mode).map(a=>({...a,_t:a.type}));title=TYPES[mode]?.cn||mode;}
+  const cells=list.map(x=>`<div class="sec" style="padding:10px;cursor:pointer" onclick="setSel('${leafKind}','${x.id}')">
     ${thumbBox(x.finals&&x.finals[0],'128px')}<div style="font-size:13px;font-weight:600;margin-top:8px">${esc(x.name)}</div>
     <div style="margin-top:4px">${typeChip(x._t)}</div></div>`).join('');
-  return `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px">${cells||'<span class="muted">空</span>'}</div>`;
+  const addBtn=addType?`<button class="btn btn-pri" style="padding:6px 11px" onclick="openNewAsset('${addType}')">${icon('plus',14)}新增${title}</button>`:'';
+  return `<div class="row" style="margin:0 2px 14px"><span class="seclabel">${title} · ${list.length}</span><span style="flex:1"></span>${addBtn}</div>
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px">${cells||'<span class="muted" style="font-size:12px">此分组暂无内容,点右上「新增」或让 Agent 生成。</span>'}</div>`;
 }
 function finalsView(finals,labels){finals=finals||[];
   if(finals.length<=1){const p=finals[0];return `<div class="media" style="height:440px;border-radius:12px">${p?`<img src="${media(p)}" style="max-width:100%;max-height:100%;object-fit:contain"/>`:'<span class="row" style="gap:6px"><span class="spin"></span>生成中…</span>'}</div>`}
@@ -324,18 +345,22 @@ async function exportProj(){setBusy(true,'导出…');const r=await jpost('/proj
 async function pollAndReload(jid){if(!jid){setBusy(false);return;}await loadDetail();render();while(true){await sleep(1500);const j=await jget('/jobs/'+jid);setBusy(true,j.message||'处理中…');if(j.status==='done'||j.status==='error'){if(j.status==='error')alert('失败: '+j.error);break;}}setBusy(false);await loadDetail();render();}
 function playVideo(url){if(!url)return;showModal(`<div class="pane" style="width:780px"><video src="${url}" controls autoplay style="width:100%;display:block;background:#000"></video><div class="row" style="padding:10px;justify-content:flex-end"><button class="btn" onclick="closeModal()">关闭</button></div></div>`);}
 
-// ---------- NEW ASSET ----------
-function openNewAsset(){let mode='upload',picked=null;
+// ---------- NEW ASSET (按所选分组,类型已定) ----------
+function openNewAsset(presetType){presetType=presetType||'character';let mode='upload',picked=null;
+  const custom=presetType==='__custom__';const cn=custom?'自定义资产':(TYPES[presetType]?.cn||presetType);
+  const kindControl=custom
+    ? `<input id="na_ctype" class="inp" style="width:150px" placeholder="类型名(如 vehicle)" value="custom"/>`
+    : `<span class="chip" style="background:${(TYPES[presetType]||TYPES.prop).fill};color:${(TYPES[presetType]||TYPES.prop).color}">${cn}</span>`;
   const body=el(`<div class="pane" style="width:460px;padding:20px">
-    <div style="font-weight:700;font-size:16px;margin-bottom:14px">新建资产</div>
-    <div class="row" style="margin-bottom:10px"><select id="na_kind" class="inp" style="width:120px">${Object.entries(TYPES).map(([k,v])=>`<option value="${k}">${v.cn}</option>`).join('')}</select><div class="row" id="na_modes" style="flex:1;gap:5px"></div></div>
+    <div style="font-weight:700;font-size:16px;margin-bottom:14px">新建${cn}</div>
+    <div class="row" style="margin-bottom:10px">${kindControl}<div class="row" id="na_modes" style="flex:1;gap:5px;justify-content:flex-end"></div></div>
     <input id="na_name" class="inp" placeholder="名称" style="margin-bottom:10px"/>
-    <textarea id="na_prompt" class="inp" placeholder="身份/外观描述(年龄性别/面部发型/服装)" rows="3" style="margin-bottom:10px"></textarea>
+    <textarea id="na_prompt" class="inp" placeholder="${presetType==='character'?'身份/外观描述(年龄性别/面部发型/服装)':'描述 / prompt'}" rows="3" style="margin-bottom:10px"></textarea>
     <div id="na_file" class="row" style="margin-bottom:10px"><button class="btn" id="na_pick">选择图片</button><span class="muted" id="na_fname" style="font-size:11px"></span></div>
     <div class="muted" style="font-size:11px;margin-bottom:14px" id="na_hint"></div>
     <div class="row" style="justify-content:flex-end"><button class="btn" onclick="closeModal()">取消</button><button class="btn btn-pri" id="na_go">创建</button></div></div>`);
   const modes=[['upload','上传图片'],['text','文字生成'],['textref','文字+参考图']];
-  const hints={upload:'直接把图片存为资产,不跑生成。',text:'用文生图流程出图(角色=三视角)。',textref:'用参考编辑流程(参考图+文字)出图。'};
+  const hints={upload:'直接把图片存为资产,不跑生成。',text:presetType==='character'?'文生图(角色=正/侧/背三视角)。':'用文生图流程出图。',textref:'用参考编辑流程(参考图+文字)出图。'};
   function refresh(){body.querySelector('#na_modes').innerHTML=modes.map(([m,l])=>`<button class="btn ${mode===m?'btn-pri':''}" data-m="${m}" style="padding:5px 9px;font-size:12px">${l}</button>`).join('');
     body.querySelectorAll('#na_modes [data-m]').forEach(b=>b.onclick=()=>{mode=b.dataset.m;refresh()});
     body.querySelector('#na_prompt').style.display=mode==='upload'?'none':'block';body.querySelector('#na_file').style.display=mode==='text'?'none':'flex';
@@ -343,9 +368,10 @@ function openNewAsset(){let mode='upload',picked=null;
   showModal(body);refresh();
   const fi=el(`<input type="file" accept="image/*" style="display:none"/>`);body.appendChild(fi);
   body.querySelector('#na_pick').onclick=()=>fi.click();fi.onchange=()=>{picked=fi.files[0];body.querySelector('#na_fname').textContent=picked?picked.name:'';};
-  body.querySelector('#na_go').onclick=async()=>{const name=body.querySelector('#na_name').value.trim();const prompt=body.querySelector('#na_prompt').value.trim();const kind=body.querySelector('#na_kind').value;
+  const getKind=()=>custom?((body.querySelector('#na_ctype').value.trim())||'custom'):presetType;
+  body.querySelector('#na_go').onclick=async()=>{const name=body.querySelector('#na_name').value.trim();const prompt=body.querySelector('#na_prompt').value.trim();const kind=getKind();
     if(!name)return alert('填名称');let refPath=null;if((mode==='upload'||mode==='textref')){if(!picked)return alert('选图片');refPath=await uploadFile(picked);}closeModal();
-    if(mode==='upload'){await jpost('/projects/'+S.project+'/ops',{ops:[{op:kind==='character'?'create_character':'create_asset',id:(kind==='character'?'char_':kind.slice(0,4)+'_')+Math.random().toString(16).slice(2,10),name,...(kind!=='character'?{type:kind}:{}),finals:[refPath]}],author:'human',rationale:'上传资产 '+name});await loadDetail();render();}
+    if(mode==='upload'){await jpost('/projects/'+S.project+'/ops',{ops:[{op:kind==='character'?'create_character':'create_asset',id:(kind==='character'?'char_':String(kind).slice(0,4)+'_')+Math.random().toString(16).slice(2,10),name,...(kind!=='character'?{type:kind}:{}),finals:[refPath]}],author:'human',rationale:'上传资产 '+name});await loadDetail();render();}
     else{setBusy(true,'生成中…');const r=await jpost('/projects/'+S.project+'/assets/generate',{atype:kind,name,prompt,ref_path:mode==='textref'?refPath:null});await pollAndReload(r.job_id);}};
 }
 async function uploadFile(f){const buf=await f.arrayBuffer();const r=await fetch('/projects/'+S.project+'/upload?filename='+encodeURIComponent(f.name),{method:'POST',body:buf});return (await r.json()).path;}
