@@ -1,0 +1,14 @@
+[Unit]
+Description=ReelForge Orchestrator (FastAPI)
+After=network.target
+
+[Service]
+User=zhangnan
+WorkingDirectory=/home/zhangnan/reelforge-orchestrator
+EnvironmentFile=/home/zhangnan/reelforge-orchestrator/.env
+ExecStart=/home/zhangnan/.conda/envs/reelforge/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

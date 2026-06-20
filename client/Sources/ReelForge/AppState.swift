@@ -3,7 +3,7 @@ import SwiftUI
 
 @MainActor
 final class AppState: ObservableObject {
-    @Published var baseURL = "http://localhost:8000"
+    @Published var baseURL = "http://10.10.10.2:8000"  // 已部署的 Orchestrator(systemd)
     @Published var project = "demo"
     @Published var status = "未连接"
     @Published var model = ""
