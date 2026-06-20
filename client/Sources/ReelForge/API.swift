@@ -49,6 +49,14 @@ struct API {
     func project(_ name: String) async throws -> ProjectDetail { try await get("projects/\(name)") }
 
     /// 技术层:为镜头某任务实例化 Graph IR(落库 shot.graph)并返回原始图。
+    /// 按预设流程生成资产(文字 / 文字+参考图),返回 job_id。
+    func generateAsset(project: String, atype: String, name: String, prompt: String, refPath: String?) async throws -> String {
+        struct In: Encodable { let atype: String; let name: String; let prompt: String; let ref_path: String? }
+        struct R: Decodable { let job_id: String? }
+        let r: R = try await post("projects/\(project)/assets/generate", In(atype: atype, name: name, prompt: prompt, ref_path: refPath))
+        return r.job_id ?? ""
+    }
+
     /// 上传参考图(原始字节),返回项目内相对路径。
     func uploadImage(project: String, data: Data, filename: String) async throws -> String {
         let fn = filename.addingPercentEncoding(withAllowedCharacters: .alphanumerics) ?? "asset.png"

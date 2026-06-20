@@ -214,6 +214,27 @@ final class AppState: ObservableObject {
         } catch { chatLog.append("❌ 新建失败: \(error.localizedDescription)") }
     }
 
+    /// 生成资产(文字 / 文字+参考图 → 预设流程出图)。有图先上传为参考。轮询作业。
+    func generateAsset(kind: String, name: String, prompt: String, image: (Data, String)?) async {
+        busy = true; activity = "生成资产…"; defer { busy = false; activity = "" }
+        do {
+            var ref: String? = nil
+            if let (data, fn) = image {
+                let p = try await api.uploadImage(project: project, data: data, filename: fn)
+                if !p.isEmpty { ref = p }
+            }
+            let jid = try await api.generateAsset(project: project, atype: kind, name: name, prompt: prompt, refPath: ref)
+            while true {
+                try await Task.sleep(nanoseconds: 1_500_000_000)
+                let j = try await api.job(jid)
+                activity = j.message ?? "处理中…"
+                if j.status == "done" { break }
+                if j.status == "error" { chatLog.append("❌ \(j.error ?? "生成失败")"); break }
+            }
+            await loadDetail()
+        } catch { chatLog.append("❌ 生成资产失败: \(error.localizedDescription)") }
+    }
+
     /// 编辑角色身份档案(trigger/相似度阈值/LoRA),经 op + 历史。
     func updateCharacter(_ id: String, trigger: String, similarity: Double?) async {
         var ops: [[String: Any]] = [["op": "set_character_field", "id": id, "field": "trigger", "value": trigger]]

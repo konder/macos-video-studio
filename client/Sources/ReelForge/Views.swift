@@ -45,50 +45,65 @@ func pickImageData() -> (Data, String)? {
     return (d, u.lastPathComponent)
 }
 
-// 新建角色/资产表单(走 op + 历史)
+// 新建资产表单:类型 + 创建方式(上传图 / 文字生成 / 文字+参考图生成),均走 op + 历史
 struct NewElementSheet: View {
     @EnvironmentObject var state: AppState
     @Environment(\.dismiss) var dismiss
     @State private var kind = "character"
+    @State private var mode = "upload"      // upload | text | textref
     @State private var name = ""
-    @State private var trigger = ""
     @State private var prompt = ""
-    @State private var sim = 0.8
-    @State private var useSim = false
     @State private var picked: (Data, String)?
     let kinds = ["character", "wardrobe", "prop", "environment", "styleframe"]
     func label(_ k: String) -> String { k == "character" ? "角色" : assetMeta(k).0 }
 
+    var needsImage: Bool { mode == "upload" || mode == "textref" }
+    var needsPrompt: Bool { mode == "text" || mode == "textref" }
+    var canSubmit: Bool {
+        !name.isEmpty && (!needsImage || picked != nil) && (!needsPrompt || !prompt.isEmpty)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("新建元素").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.ink)
-            Picker("类型", selection: $kind) {
-                ForEach(kinds, id: \.self) { Text(label($0)).tag($0) }
-            }.pickerStyle(.menu).tint(Theme.accent)
-            DarkField(placeholder: "名称", text: $name)
-            if kind == "character" {
-                DarkField(placeholder: "触发词(LoRA/提示用)", text: $trigger)
-                Toggle(isOn: $useSim) { Text("一致性相似度阈值 \(useSim ? String(format: "%.2f", sim) : "")").font(.system(size: 12)).foregroundStyle(Theme.inkSoft) }
-                if useSim { Slider(value: $sim, in: 0.5...0.99).tint(Theme.accent) }
-            } else {
-                DarkField(placeholder: "描述 / prompt", text: $prompt)
-            }
+            Text("新建资产").font(.system(size: 16, weight: .semibold)).foregroundStyle(Theme.ink)
             HStack(spacing: 8) {
-                Button { picked = pickImageData() } label: { Label("选择参考图", systemImage: "photo.badge.plus") }
-                    .buttonStyle(.bordered).tint(Theme.inkSoft)
-                if let p = picked { Text(p.1).font(.system(size: 11)).foregroundStyle(Theme.inkSoft).lineLimit(1) }
+                Picker("类型", selection: $kind) { ForEach(kinds, id: \.self) { Text(label($0)).tag($0) } }
+                    .pickerStyle(.menu).tint(Theme.accent).frame(width: 130)
+                Picker("方式", selection: $mode) {
+                    Text("上传图片").tag("upload"); Text("文字生成").tag("text"); Text("文字+参考图").tag("textref")
+                }.pickerStyle(.segmented)
             }
+            DarkField(placeholder: "名称", text: $name)
+            if needsPrompt { DarkField(placeholder: kind == "character" ? "外观描述(如:全身 正/侧/背 三视角…)" : "描述 / prompt", text: $prompt, multiline: true) }
+            if needsImage {
+                HStack(spacing: 8) {
+                    Button { picked = pickImageData() } label: { Label(mode == "upload" ? "选择图片" : "选择参考图", systemImage: "photo.badge.plus") }
+                        .buttonStyle(.bordered).tint(Theme.inkSoft)
+                    if let p = picked { Text(p.1).font(.system(size: 11)).foregroundStyle(Theme.inkSoft).lineLimit(1) }
+                }
+            }
+            Text(modeHint).font(.system(size: 11)).foregroundStyle(Theme.inkSoft)
             HStack {
                 Spacer()
                 Button("取消") { dismiss() }
-                Button("创建") {
-                    let k = kind, n = name, t = trigger, pr = prompt
-                    let s: Double? = (k == "character" && useSim) ? sim : nil
-                    let img = picked
-                    Task { await state.newElement(kind: k, name: n, trigger: t, prompt: pr, similarity: s, image: img); dismiss() }
-                }.buttonStyle(.borderedProminent).tint(Theme.accent).disabled(name.isEmpty)
+                Button(mode == "upload" ? "创建" : "生成") {
+                    let k = kind, n = name, pr = prompt, img = picked, m = mode
+                    Task {
+                        if m == "upload" { await state.newElement(kind: k, name: n, trigger: "", prompt: "", similarity: nil, image: img) }
+                        else { await state.generateAsset(kind: k, name: n, prompt: pr, image: m == "textref" ? img : nil) }
+                        dismiss()
+                    }
+                }.buttonStyle(.borderedProminent).tint(Theme.accent).disabled(!canSubmit || state.busy)
             }
-        }.padding(20).frame(width: 420).background(Theme.bg)
+        }.padding(20).frame(width: 440).background(Theme.bg)
+    }
+
+    var modeHint: String {
+        switch mode {
+        case "upload": return "直接把图片存为资产产物,不跑生成流程。"
+        case "text": return "用文生图预设流程产出 1 张图(技术层可改流程)。"
+        default: return "用参考编辑预设流程(参考图+文字)产出 1 张图(技术层可改流程)。"
+        }
     }
 }
 

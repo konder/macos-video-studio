@@ -431,6 +431,59 @@ def list_locks(name: str):
     return {"locks": {sid: v for (p, sid), v in LOCKS.items() if p == name}}
 
 
+# ---- 资产生成(模板→实例:文字 / 文字+参考图 → 出图)----
+class AssetGenIn(BaseModel):
+    atype: str            # character | wardrobe | prop | environment | styleframe
+    name: str
+    prompt: str
+    ref_path: str | None = None   # 项目内参考图路径(已上传);空=纯文生图
+
+
+@app.post("/projects/{name}/assets/generate")
+def generate_asset(name: str, body: AssetGenIn):
+    """按预设流程生成资产:有参考图→keyframe_edit(编辑),无→char_concept(文生图)。
+    实例化的图作为该资产的生成流程(asset.graph)落库,产物入 finals。异步作业。"""
+    if not body.prompt.strip():
+        raise HTTPException(400, "prompt 不能为空")
+    jid = JOBS.create("asset", name, total=1, message="生成资产…")
+
+    def work():
+        JOBS.update(jid, status="running")
+        try:
+            store = _store(name)
+            comfy = _registry.route("edit" if body.ref_path else "txt2img").client
+            from .pipeline import _upload
+            if body.ref_path:
+                ref_name = _upload(comfy, body.ref_path)
+                ir = _recipes.instantiate("keyframe_edit", {
+                    "input_image": ref_name, "prompt": body.prompt, "seed": 42,
+                    "filename_prefix": f"asset_{body.atype}"})
+            else:
+                ir = _recipes.instantiate("char_concept", {"prompt": body.prompt, "seed": 42})
+            errs = validate_ir(ir, comfy.object_info())
+            if errs:
+                raise RuntimeError(str(errs))
+            res = run_ir(ir, comfy, store)
+            if not res.get("assets"):
+                raise RuntimeError(res.get("error", "无产物"))
+            d = store.load()
+            is_char = body.atype == "character"
+            op = {"op": "create_character" if is_char else "create_asset",
+                  "id": _nid("char" if is_char else body.atype[:4]),
+                  "name": body.name, "prompt": body.prompt, "finals": res["assets"], "graph": ir}
+            if not is_char:
+                op["type"] = body.atype
+            record_change(d, [op], author="human", rationale=f"生成资产 {body.name}")
+            d["history"][-1]["ts"] = time.time()
+            store._write(d)
+            JOBS.update(jid, status="done", message="完成", result={"finals": res["assets"]})
+        except Exception as e:  # noqa: BLE001
+            JOBS.update(jid, status="error", error=str(e), message=f"失败: {e}")
+
+    threading.Thread(target=work, daemon=True).start()
+    return {"ok": True, "job_id": jid}
+
+
 @app.get("/projects/{name}/state")
 def project_state(name: str, since: int = 0):
     """断线重连/增量同步:since=0 返回全量 doc;否则返回 seq 之后的变更。"""
