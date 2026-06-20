@@ -29,13 +29,24 @@ Qwen-Image / Z-Image · 视频 **WAN 2.2** 主力 · **可本机训 LoRA** · **
 ControlNet/补帧无模型需下载 · 已带 Kling/Runway/Luma/Veo 等云 partner 节点 · 项目存 NAS(37T)。
 据此已落地配方库（[agent-system.md](agent-system.md) §3）并改向 A2。
 
-### A2. 一致性技术栈选型（项目最大技术风险）—— 方向已定，待 spike 验证
+### A2. 一致性技术栈选型（项目最大技术风险）—— 方向已定，M2 spike 部分验证（2026-06）
 A1 显示 IPAdapter/InstantID/PuLID 未装、且对本机 2026 新基模未必适配，故**改向**（详见
 [agent-system.md](agent-system.md) §5 / [env-survey.md](env-survey.md) 解读）：
 - **主线：角色 LoRA**（本机 `TrainLoraNode` 训练，两风格通用、不挑基模）。
 - **对照：** Qwen-Image-Edit 参考编辑 / Flux-2·Qwen 原生参考条件。
 - **M2 spike**：以上方案 × 写实/二次元两风格，验「定稿 → 关键帧 → WAN i2v」整条链的漂移。
 - **依赖 D7**（二次元基模）；这仍是**最该尽早做实验**的点。
+
+**M2 spike 结果（写实线 Track A，详见 [spike-m2-results.md](spike-m2-results.md)）**：
+- 角色 LoRA 跑通，但 **32GB 显存只够 256² 训练**（512² OOM），且唯一完整可训基模 Z-Image Turbo 是
+  distilled turbo（非理想）→ 实测身份一致性只到**中等**；要做强需补 Flux-2 依赖 + 突破 256²（外部训练器/更多显存）。
+- 对照 Track B/C **缺模型**（Qwen edit 基模 ~20GB；Flux-2 vae+文本编码器 ~8–10GB），本轮未跑。
+- **新增并列候选：参考条件（tuning-free，无需 LoRA）** —— 即公网即梦/通义/可灵/Vidu 的"几张定妆照+场景图→强一致"
+  原理（IP-Adapter / ReferenceNet / DiT in-context KV 注入 + 人脸 embedding，身份保持内化进基模、推理零训练）。
+  本机等价能力：**WAN 2.2 `WanPhantomSubjectToVideo`/`WanAnimateToVideo`（本地主体参考→视频，需补权重）**、
+  Flux-2 KV 编辑；以及 **云端 即梦/Vidu/可灵 partner 节点（配 key 即用）**。
+  **倾向**：视频一致性 MVP 走参考条件（云 reference-to-video 或本地 WAN Phantom）可能比本机 LoRA 更省力、上限更高；
+  LoRA 留给需要高保真的主角。待 ① WAN i2v 链路验证 ② 参考条件实测后定 MVP 默认法。
 
 ### A3. 云接入方式 —— ✅ 已定（2026-06）
 即梦**走火山引擎官方 API**；Qwen 走 DashScope。**新发现**：ComfyUI 已带 Kling/Runway/Luma/Veo/Sora/Vidu
