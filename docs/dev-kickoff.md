@@ -35,6 +35,10 @@ README → [open-questions](open-questions.md)（就绪度结论 + 全部已定�
 先在 ComfyUI UI 手搭一张**能出图**的 `char_concept`（用该模型**对应的 EmptyLatent / VAE**，避免冒烟测试里
 WAN VAE 48ch vs 16ch 那类通道不匹配），**导出 API 格式 json** 作配方模板；再写 Orchestrator + 四工具，跑通端到端。
 
+> 仓库已带最小骨架 [`../orchestrator/`](../orchestrator/)（FastAPI + Claude tool-use 循环 + 四工具 + 配方/IR/持久化），
+> clone 下去接着填即可。**第一步就是用真实导出覆盖 `orchestrator/app/recipes/char_concept.json` 这个占位模板。**
+> 详见 [`../orchestrator/README.md`](../orchestrator/README.md)。
+
 ## 5. 规矩
 - 在 feature 分支开发；设计已冻结——发现设计缺口先记进 [open-questions.md](open-questions.md) 再动，别闷头偏离。
 - 唯一已知后置：D7（二次元基模），M1/M2 写实线不涉及。
