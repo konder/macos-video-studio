@@ -77,6 +77,12 @@ Orchestrator 适配器。M6 收口细节（B 类）。
 - **资产 / 产物存储与命名**：`asset_id` 方案、缩略图 / 低码率预览生成、take ↔ 产物挂接。
 - **Agent 运行时**：M1 先**单 Agent + 工具循环**（导演 / 搭图后续再拆）；system prompt、ask-vs-proceed 策略、
   重试 / 错误翻译成人话。
+- **Agent 模型接入方式（M1 偏离记录，2026-06）**：原决策「Agent = 最新 Claude 模型 tool-use」。
+  M1 实现改为**经 LiteLLM 网关（`10.10.10.5:4000`，OpenAI 兼容）**调用，使底层模型可自由替换
+  （含非 Claude），便于本地/自建模型选型与成本控制。tool-use 协议改用 OpenAI function-calling 格式
+  （`orchestrator/app/tools.py` 的 schema 仍为单一来源，agent 内转换）。配置走 orchestrator 专属
+  `LITELLM_*` 变量并显式传给 SDK，**不改全局 `ANTHROPIC_*`**（避免影响同机 Claude Code）。
+  **如何回退**：把 `app/agent.py` 换回 anthropic SDK + `claude-opus-4-8`、`AGENT_MODEL` 填 Claude 模型即可。
 
 ## C. 已经足够清楚、可直接编码
 

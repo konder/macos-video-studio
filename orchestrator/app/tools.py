@@ -50,6 +50,7 @@ class Context:
         self.recipes = recipes
         self.store = store
         self.graph: dict | None = None
+        self.validated: bool = False  # 当前图是否已 validate 通过(run 的前置门槛)
 
 
 def dispatch(name: str, args: dict, ctx: Context) -> str:
@@ -58,17 +59,22 @@ def dispatch(name: str, args: dict, ctx: Context) -> str:
 
     if name == "instantiate_recipe":
         ctx.graph = ctx.recipes.instantiate(args["id"], args.get("params", {}))
+        ctx.validated = False  # 新图未校验
         return json.dumps({"ok": True, "nodes": len(ctx.graph["nodes"])}, ensure_ascii=False)
 
     if name == "validate":
         if ctx.graph is None:
             return "Error: 还没有当前图,请先 instantiate_recipe。"
         errors = validate_ir(ctx.graph, ctx.comfy.object_info())
+        ctx.validated = not errors
         return json.dumps({"ok": not errors, "errors": errors}, ensure_ascii=False)
 
     if name == "run":
         if ctx.graph is None:
             return "Error: 还没有当前图。"
+        # 执行前置门槛:必须先 validate 通过(决策 dev-kickoff §3:validate → run)
+        if not ctx.validated:
+            return "Error: 当前图尚未 validate 通过,请先调用 validate;若有错误改正后再 run。"
         return json.dumps(run_ir(ctx.graph, ctx.comfy, ctx.store), ensure_ascii=False)
 
     return f"Error: unknown tool {name}"
