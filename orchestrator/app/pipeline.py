@@ -17,6 +17,65 @@ def _upload(comfy, store_path: str) -> str:
     return comfy.upload_image(data, os.path.basename(store_path))
 
 
+def train_character_lora(
+    registry,
+    image_paths: list[str],
+    trigger: str,
+    prefix: str = "char_lora",
+    resolution: int = 512,
+    steps: int = 400,
+    rank: int = 16,
+    lr: float = 2e-4,
+    backend_name: str | None = None,
+) -> dict:
+    """角色 LoRA 训练，默认路由到 DGX(大显存,破 5090 的 256² 上限)。
+
+    image_paths: 训练集(本地路径,一致角色的多视角/表情图)。
+    trigger:     触发词(如 'sks woman')。
+    返回 {"backend": name, "lora": 保存文件名前缀, "prompt_id": ...}.
+    动态按图数量建训练图:LoadImage×N → ImageBatch 链 → ImageScale → MakeTrainingDataset → TrainLoraNode → SaveLoRA。
+    """
+    backend = registry.get(backend_name) if backend_name else registry.route(
+        "train", prefer_latency="slow"
+    )
+    comfy = backend.client
+    names = [comfy.upload_image(Path(p).read_bytes(), os.path.basename(p)) for p in image_paths]
+    caption = f"{trigger}, character portrait"
+
+    g: dict = {
+        "vae": {"class_type": "VAELoader", "inputs": {"vae_name": "ae.safetensors"}},
+        "clip": {"class_type": "CLIPLoader", "inputs": {"clip_name": "qwen_3_4b_fp8_mixed.safetensors", "type": "lumina2", "device": "default"}},
+        "unet": {"class_type": "UNETLoader", "inputs": {"unet_name": "z_image_turbo_bf16.safetensors", "weight_dtype": "default"}},
+    }
+    load_ids = []
+    for i, nm in enumerate(names):
+        nid = f"img{i}"
+        g[nid] = {"class_type": "LoadImage", "inputs": {"image": nm}}
+        load_ids.append(nid)
+    batch = load_ids[0]
+    for i in range(1, len(load_ids)):
+        nid = f"batch{i}"
+        g[nid] = {"class_type": "ImageBatch", "inputs": {"image1": [batch, 0], "image2": [load_ids[i], 0]}}
+        batch = nid
+    g["scale"] = {"class_type": "ImageScale", "inputs": {"image": [batch, 0], "upscale_method": "lanczos", "width": resolution, "height": resolution, "crop": "disabled"}}
+    g["ds"] = {"class_type": "MakeTrainingDataset", "inputs": {"images": ["scale", 0], "vae": ["vae", 0], "clip": ["clip", 0], "texts": "\n".join([caption] * len(names))}}
+    g["train"] = {"class_type": "TrainLoraNode", "inputs": {
+        "model": ["unet", 0], "latents": ["ds", 0], "positive": ["ds", 1],
+        "batch_size": 1, "grad_accumulation_steps": 1, "steps": steps, "learning_rate": lr,
+        "rank": rank, "optimizer": "AdamW", "loss_function": "MSE", "seed": 42,
+        "training_dtype": "bf16", "lora_dtype": "bf16", "quantized_backward": False,
+        "algorithm": "LoRA", "gradient_checkpointing": True, "checkpoint_depth": 1,
+        "offloading": False, "existing_lora": "[None]", "bucket_mode": False, "bypass_mode": False}}
+    g["save"] = {"class_type": "SaveLoRA", "inputs": {"lora": ["train", 0], "prefix": f"loras/{prefix}"}}
+
+    pid = comfy.submit(g)
+    history = comfy.wait(pid, timeout=3600.0)
+    status = history.get("status", {})
+    ok = status.get("completed") or status.get("status_str") == "success"
+    return {"backend": backend.name, "resolution": resolution, "steps": steps,
+            "prompt_id": pid, "ok": bool(ok), "lora_prefix": prefix}
+
+
 def shot_to_video(
     comfy,
     recipes,

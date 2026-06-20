@@ -1,11 +1,25 @@
 """项目持久化:一个项目 = 一个文件夹(project.json + 媒体 + 缩略图)。
 决策见 docs/data-model.md §4。生产环境 PROJECTS_DIR 指向 NAS /mnt/nas。
+
+project.json schema(阶段2 定稿):
+{
+  "meta": {title, created, aspect, resolution, fps, style, ...},
+  "characters": [ {id, name, source, finals:[path], trigger, lora, created} ],   # Character Bible
+  "assets":     [ ... ],                                                          # 服装/道具/场景(后续)
+  "shots":      [ {id, script, refs:[char_id], scene_prompt, motion_prompt,
+                   keyframe, takes:[{id, video, meta}], selected_take, graph} ]
+}
 """
 from __future__ import annotations
 
 import json
 import os
 import time
+import uuid
+
+
+def _nid(prefix: str) -> str:
+    return f"{prefix}_{uuid.uuid4().hex[:8]}"
 
 
 class ProjectStore:
@@ -37,3 +51,63 @@ class ProjectStore:
         with open(path, "wb") as f:
             f.write(data)
         return path
+
+    # ---- Character Bible ----
+    def add_character(self, name: str, source: str = "text",
+                      finals: list[str] | None = None, trigger: str = "",
+                      lora: str | None = None) -> dict:
+        """加入角色档案:定稿图集 + 触发词 +(可选)LoRA。返回 character。"""
+        doc = self.load()
+        char = {"id": _nid("char"), "name": name, "source": source,
+                "finals": finals or [], "trigger": trigger, "lora": lora,
+                "created": time.time()}
+        doc["characters"].append(char)
+        self._write(doc)
+        return char
+
+    def set_character_lora(self, char_id: str, lora: str) -> None:
+        doc = self.load()
+        for c in doc["characters"]:
+            if c["id"] == char_id:
+                c["lora"] = lora
+        self._write(doc)
+
+    def get_character(self, char_id: str) -> dict | None:
+        return next((c for c in self.load()["characters"] if c["id"] == char_id), None)
+
+    # ---- Shots / takes ----
+    def add_shot(self, script: str = "", refs: list[str] | None = None,
+                 scene_prompt: str = "", motion_prompt: str = "") -> dict:
+        doc = self.load()
+        shot = {"id": _nid("shot"), "script": script, "refs": refs or [],
+                "scene_prompt": scene_prompt, "motion_prompt": motion_prompt,
+                "keyframe": None, "takes": [], "selected_take": None, "graph": None}
+        doc["shots"].append(shot)
+        self._write(doc)
+        return shot
+
+    def _shot(self, doc: dict, shot_id: str) -> dict:
+        s = next((s for s in doc["shots"] if s["id"] == shot_id), None)
+        if s is None:
+            raise KeyError(f"未知镜头: {shot_id}")
+        return s
+
+    def set_keyframe(self, shot_id: str, keyframe: str) -> None:
+        doc = self.load()
+        self._shot(doc, shot_id)["keyframe"] = keyframe
+        self._write(doc)
+
+    def add_take(self, shot_id: str, video: str, meta: dict | None = None) -> dict:
+        doc = self.load()
+        shot = self._shot(doc, shot_id)
+        take = {"id": _nid("take"), "video": video, "meta": meta or {}}
+        shot["takes"].append(take)
+        if shot["selected_take"] is None:
+            shot["selected_take"] = take["id"]
+        self._write(doc)
+        return take
+
+    def select_take(self, shot_id: str, take_id: str) -> None:
+        doc = self.load()
+        self._shot(doc, shot_id)["selected_take"] = take_id
+        self._write(doc)
