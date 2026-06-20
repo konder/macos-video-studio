@@ -454,7 +454,7 @@ def generate_asset(name: str, body: AssetGenIn):
     if not body.prompt.strip():
         raise HTTPException(400, "prompt 不能为空")
     from .pipeline import _upload, generate_asset_images
-    from .recipes import asset_dims, character_view_prompts
+    from .recipes import asset_dims, asset_prompt, asset_view_prompts
     store = _store(name)
     style = (store.load().get("meta") or {}).get("style", "realistic")
     comfy = _registry.route("edit" if body.ref_path else "txt2img").client
@@ -463,19 +463,14 @@ def generate_asset(name: str, body: AssetGenIn):
     w, h = body.width or dw, body.height or dh
     is_char = body.atype == "character"
     ref_name = _upload(comfy, body.ref_path) if body.ref_path else None
-    # 代表流程图(create-first 展示用):角色取正面单人图,其余取实际流程
+    # 代表流程图(create-first 展示用):取该类型首视角(或参考编辑图)
     if ref_name:
-        from .recipes import asset_prompt
         repr_ir = _recipes.instantiate("keyframe_edit", {"input_image": ref_name,
                   "prompt": asset_prompt(body.atype, body.prompt, style), "seed": seed,
                   "filename_prefix": f"asset_{body.atype}"})
-    elif is_char:
-        repr_ir = _recipes.instantiate("char_concept", {
-            "prompt": character_view_prompts(body.prompt, style)[0][1], "width": w, "height": h, "seed": seed})
     else:
-        from .recipes import asset_prompt
         repr_ir = _recipes.instantiate("char_concept", {
-            "prompt": asset_prompt(body.atype, body.prompt, style), "width": w, "height": h, "seed": seed})
+            "prompt": asset_view_prompts(body.atype, body.prompt, style)[0][1], "width": w, "height": h, "seed": seed})
     aid = _nid("char" if is_char else body.atype[:4])
     op = {"op": "create_character" if is_char else "create_asset", "id": aid,
           "name": body.name, "prompt": body.prompt, "finals": [], "graph": repr_ir,
@@ -693,6 +688,7 @@ def export(name: str):
 class ChatIn(BaseModel):
     message: str
     project: str = "demo"
+    image: str | None = None        # 粘贴的参考图(项目内路径);附给 Agent 作参考
 
 
 @app.post("/chat")
@@ -700,11 +696,12 @@ def chat(body: ChatIn):
     """搭图 Agent 对话 → SSE 流式(api-contract):tool_call/tool_result/message/done。
     Agent 在后台线程跑,事件经线程安全队列流出。"""
     q: "queue.Queue" = queue.Queue()
+    msg = body.message + (f"\n[用户附带参考图: {body.image}]" if body.image else "")
 
     def work():
         try:
             ctx = Context(ComfyClient(), _recipes, _store(body.project))
-            text, _ = run_agent(body.message, ctx, on_event=q.put)
+            text, _ = run_agent(msg, ctx, on_event=q.put)
             q.put({"type": "message", "text": text, "graph": ctx.graph})
         except Exception as e:  # noqa: BLE001
             q.put({"type": "error", "error": str(e)})

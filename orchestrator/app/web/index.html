@@ -69,18 +69,17 @@
   </main>
 
   <aside class="pane" style="width:340px">
-    <div class="row" style="padding:11px 14px;border-bottom:1px solid var(--line)">
-      <button class="btn tab" data-tab="chat" style="padding:5px 12px" onclick="setTab('chat')">对话</button>
-      <button class="btn tab" data-tab="history" style="padding:5px 12px" onclick="setTab('history')">历史</button>
-      <span style="flex:1"></span><span class="muted row" style="font-size:11px;gap:4px"><span id="agentIco"></span>Agent</span>
+    <div class="row" style="padding:12px 14px;border-bottom:1px solid var(--line)">
+      <span class="row" style="gap:6px;font-weight:600;font-size:13px"><span id="agentIco"></span>Agent</span>
+      <span style="flex:1"></span><span class="muted" id="footModel" style="font-size:11px">—</span>
     </div>
     <div class="scroll" id="rightBody" style="flex:1;padding:14px"></div>
-    <div id="chatInputWrap" style="padding:12px;border-top:1px solid var(--line)">
-      <textarea id="chatInput" class="inp" placeholder="给 Agent 发消息… 例:帮我生成一个角色" rows="3"></textarea>
-      <div class="row" style="margin-top:8px;justify-content:flex-end"><button class="btn btn-pri" onclick="sendChat()"><span id="sendIco"></span>发送</button></div>
-    </div>
-    <div class="row muted" style="font-size:11px;padding:8px 14px;border-top:1px solid var(--line)">
-      <span id="footModel">—</span><span style="flex:1"></span><span id="footProject"></span>
+    <div style="padding:12px;border-top:1px solid var(--line)">
+      <div id="chatAttach"></div>
+      <div id="chatBox" style="border:1px solid var(--b-input);border-radius:14px;padding:6px 6px 6px 12px;background:#fff;transition:.1s">
+        <textarea id="chatInput" rows="2" placeholder="给 Agent 发消息,可粘贴图片… 例:帮我生成一个角色" style="width:100%;border:none;outline:none;resize:none;font-family:inherit;font-size:13px;background:transparent;color:var(--ink);line-height:1.5"></textarea>
+        <div class="row" style="justify-content:flex-end"><button id="sendBtn" class="btn btn-pri" style="padding:7px;border-radius:10px" onclick="sendChat()"><span id="sendIco"></span></button></div>
+      </div>
     </div>
   </aside>
 </div>
@@ -136,7 +135,7 @@ async function connect(){
     if(!S.project&&S.projects[0])S.project=S.projects[0];if(S.project)await loadDetail();render();
   }catch(e){document.getElementById('footModel').textContent='连接失败';}}
 async function loadProjects(){S.projects=(await jget('/projects')).projects||[]}
-async function loadDetail(){if(!S.project)return;S.detail=await jget('/projects/'+S.project);document.getElementById('footProject').textContent=S.project;renderTree();renderMiddle();}
+async function loadDetail(){if(!S.project)return;S.detail=await jget('/projects/'+S.project);renderTree();renderMiddle();}
 async function selectProject(n){S.project=n;S.sel={kind:'overview'};S.graph=null;await loadDetail();render();}
 function chars(){return (S.detail&&S.detail.characters)||[]}
 function assets(){return (S.detail&&S.detail.assets)||[]}
@@ -161,7 +160,6 @@ function renderTree(){
     const r=el(`<div class="treerow ${cur&&selIs('overview')?'sel':''}"><span style="width:10px;color:var(--t4);font-size:10px">${cur?(S.expanded.p?'▾':'▸'):''}</span>${icon('film',15)}<span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(p)}</span></div>`);
     r.onclick=()=>{if(!cur){selectProject(p);return}S.sel={kind:'overview'};S.graph=null;S.expanded.p=true;render();};t.appendChild(r);
     if(cur&&S.expanded.p){
-      t.appendChild(leaf(icon('grid',14),'概览','overview',1));
       // 资产(父)→ 子分组(每组行内＋新增)
       t.appendChild(parentRow(icon('box',14),'资产','asset','assets'));
       if(S.expanded.asset) ASSET_GROUPS.forEach(g=>{
@@ -411,32 +409,43 @@ function openSettings(){showModal(`<div class="pane" style="width:420px;padding:
 function showModal(c,raw){const m=document.getElementById('modal');m.innerHTML='';if(raw){m.appendChild(typeof c==='string'?el(c):c);return;}const bg=el(`<div class="modal-bg" onclick="if(event.target===this)closeModal()"></div>`);bg.appendChild(typeof c==='string'?el(c):c);m.appendChild(bg);}
 function closeModal(){document.getElementById('modal').innerHTML='';}
 
-// ---------- AGENT / HISTORY ----------
-function setTab(t){S.tab=t;render()}
+// ---------- AGENT(对话 + react 过程)----------
+const TOOLCN={search_recipes:'检索配方',instantiate_recipe:'实例化流程',set_param:'改参数',add_node:'加节点',connect:'连线',delete_node:'删节点',estimate:'预估',validate:'校验',run:'执行出图',create_asset:'创建资产'};
 function renderRight(){
-  document.querySelectorAll('.tab').forEach(b=>b.classList.toggle('btn-pri',b.dataset.tab===S.tab));
-  document.getElementById('chatInputWrap').style.display=S.tab==='chat'?'block':'none';
   const rb=document.getElementById('rightBody');
-  if(S.tab==='history'){const h=((S.detail&&S.detail.history)||[]).slice().reverse();
-    rb.innerHTML=h.map(c=>`<div class="row" style="align-items:flex-start;gap:8px;margin-bottom:10px"><span class="dot" style="background:${c.author==='agent'?'#7a4ad0':'#0a84ff'};margin-top:4px"></span>
-      <div><div style="font-size:12px">#${c.seq} · ${esc(c.rationale||'变更')}</div><div class="muted" style="font-size:10px">${c.author==='agent'?'Agent':'你'}</div></div></div>`).join('')||'<div class="muted" style="font-size:12px">还没有变更</div>';return;}
-  rb.innerHTML=S.chat.map(m=>{const u=m.role==='user';return `<div class="row" style="margin-bottom:10px;justify-content:${u?'flex-end':'flex-start'}"><div class="bubble" style="background:${u?'var(--blue)':'var(--fill)'};color:${u?'#fff':'var(--ink)'}">${esc(m.text)}</div></div>`}).join('')||'<div class="muted" style="font-size:12px;line-height:1.6">对 Agent 说点什么 —— 它能拆剧本、备资产、出关键帧与成片。</div>';
+  rb.innerHTML=S.chat.map(m=>{
+    if(m.role==='user')return `<div class="row" style="margin-bottom:12px;justify-content:flex-end"><div class="bubble" style="background:var(--blue);color:#fff">${esc(m.text)}</div></div>`;
+    const steps=(m.steps||[]).map(s=>`<div class="row" style="gap:6px;font-size:11.5px;color:var(--t3);margin:3px 0">${s.done?'<span style="color:var(--green)">✓</span>':'<span class="spin" style="width:11px;height:11px"></span>'}<span>${esc(s.label)}</span></div>`).join('');
+    const body=(steps?`<div style="${m.text?'border-bottom:1px solid var(--border);padding-bottom:7px;margin-bottom:7px':''}">${steps}</div>`:'')+(m.text?`<div style="line-height:1.55">${esc(m.text)}</div>`:(steps?'':'<span class="spin"></span>'));
+    return `<div style="margin-bottom:12px"><div class="bubble" style="background:var(--fill);color:var(--ink);max-width:100%">${body}</div></div>`;
+  }).join('')||'<div class="muted" style="font-size:12px;line-height:1.6">对 Agent 说点什么 —— 它能拆剧本、备资产、出关键帧与成片。</div>';
   rb.scrollTop=rb.scrollHeight;
 }
-async function sendChat(){const t=document.getElementById('chatInput').value.trim();if(!t)return;document.getElementById('chatInput').value='';
-  S.chat.push({role:'user',text:t});S.chat.push({role:'ai',text:'…'});const ai=S.chat.length-1;setBusy(true,'Agent 思考中…');renderRight();
-  try{const resp=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t,project:S.project})});
-    const rd=resp.body.getReader(),dec=new TextDecoder();let buf='',ev='message',fin='',tools=[];
+async function sendChat(){const ipt=document.getElementById('chatInput');const t=ipt.value.trim();const att=S.chatAttach;if(!t&&!att)return;ipt.value='';
+  const userText=t+(att?' [附参考图]':'');S.chat.push({role:'user',text:userText});
+  const ai={role:'ai',steps:[],text:''};S.chat.push(ai);S.chatAttach=null;renderAttach();setBusy(true,'Agent 思考中…');renderRight();
+  try{const resp=await fetch('/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t,project:S.project,image:att?att.path:null})});
+    const rd=resp.body.getReader(),dec=new TextDecoder();let buf='',ev='message';
     while(true){const {value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});const parts=buf.split('\n\n');buf=parts.pop();
       for(const p of parts)for(const line of p.split('\n')){if(line.startsWith('event:'))ev=line.slice(6).trim();
         else if(line.startsWith('data:')){let d={};try{d=JSON.parse(line.slice(5).trim())}catch(e){}
-          if(ev==='tool_call'){tools.push(d.tool);S.chat[ai].text='⚙ '+tools.join(' → ');renderRight();}
-          else if(ev==='tool_result')await loadDetail();else if(ev==='message')fin=d.text||fin;else if(ev==='error')fin='⚠ '+(d.error||'');}}}
-    S.chat[ai].text=fin||'(无输出)';
-  }catch(e){S.chat[ai].text='⚠ '+e.message;}setBusy(false);await loadDetail();render();}
+          if(ev==='tool_call'){ai.steps.forEach(s=>s.done=true);ai.steps.push({label:TOOLCN[d.tool]||d.tool,done:false});renderRight();}
+          else if(ev==='tool_result'){ai.steps.forEach(s=>s.done=true);await loadDetail();renderRight();}
+          else if(ev==='message')ai.text=d.text||ai.text;else if(ev==='error')ai.text='⚠ '+(d.error||'');}}}
+    ai.steps.forEach(s=>s.done=true);if(!ai.text)ai.text='(无输出)';
+  }catch(e){ai.text='⚠ '+e.message;}setBusy(false);await loadDetail();render();}
+// 粘贴图片 → 上传 → 附件
+function renderAttach(){const a=document.getElementById('chatAttach');if(!S.chatAttach){a.innerHTML='';return;}
+  a.innerHTML=`<div class="row" style="gap:8px;margin-bottom:8px;padding:6px;background:var(--fill);border-radius:10px"><img src="${media(S.chatAttach.path)}" style="width:40px;height:40px;object-fit:cover;border-radius:6px"/><span class="muted" style="font-size:11px;flex:1">参考图已附加</span><span class="btn" style="padding:2px 8px" onclick="S.chatAttach=null;renderAttach()">×</span></div>`;}
+function initPaste(){const ipt=document.getElementById('chatInput');
+  ipt.addEventListener('paste',async e=>{const it=[...(e.clipboardData||{}).items||[]].find(i=>i.type.startsWith('image/'));if(!it)return;e.preventDefault();
+    const f=it.getAsFile();setBusy(true,'上传图片…');try{const path=await uploadFile(f);S.chatAttach={path,name:f.name||'pasted.png'};renderAttach();}finally{setBusy(false)}});
+  ipt.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendChat();}});
+  ipt.addEventListener('focus',()=>document.getElementById('chatBox').style.borderColor='var(--blue)');
+  ipt.addEventListener('blur',()=>document.getElementById('chatBox').style.borderColor='var(--b-input)');}
 
 function render(){renderTree();renderMiddle();renderRight();}
-connect();
+initPaste();connect();
 </script>
 </body>
 </html>

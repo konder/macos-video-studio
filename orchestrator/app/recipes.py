@@ -13,40 +13,58 @@ import os
 RECIPE_DIR = os.path.join(os.path.dirname(__file__), "recipes")
 
 
-def asset_prompt(atype: str, prompt: str, style: str = "realistic") -> str:
-    """按资产类型增强 prompt。角色 → 站姿全身三视角定型表(模板参考用户提供版)。
-    画风在前 + character sheet/turnaround + 身份(用户词) + full body/standing + 中性表情/浅灰底。"""
-    if atype != "character":
-        return prompt
-    look = ("anime style, clean cel-shaded illustration" if style == "anime"
-            else "photorealistic, realistic photograph")
-    return (f"{look}, character sheet, character turnaround, front view, side view, back view, "
-            f"multiple angles, {prompt}, full body, standing, simple light gray background, "
-            "neutral expression, even white lighting, 8k, highly detailed, masterpiece")
-
-
-def asset_dims(atype: str) -> tuple[int, int]:
-    """角色单视=竖幅全身,其余方形。(角色三视=分 3 次各出一张单人全身图)"""
-    return (832, 1216) if atype == "character" else (1024, 1024)
-
-
 def _look(style: str) -> str:
     return ("anime style, clean cel-shaded illustration" if style == "anime"
             else "photorealistic, realistic photograph")
 
 
-def character_view_prompts(prompt: str, style: str = "realistic") -> list[tuple[str, str]]:
-    """角色三视角:每个视角一张**单人全身**图(solo,数量严格=1),合起来正好 3 张。
-    关键:不用 'character sheet/turnaround/multiple angles'(那会塞多个人、数量不可控)。"""
-    look = _look(style)
-    base = (f"{prompt}, solo, single person, one character only, full body from head to toe, "
-            "standing, centered, simple light gray background, neutral expression, even lighting, "
-            "8k, highly detailed, masterpiece")
-    return [
-        ("front", f"{look}, full-body front view facing camera, {base}"),
-        ("side", f"{look}, full-body side view profile, {base}"),
-        ("back", f"{look}, full-body back view from behind, {base}"),
-    ]
+# 每类资产的"主体 + 取景"基底(不含画风/视角)。关键:服装/道具不画人,场景不画人。
+def _type_base(atype: str, prompt: str) -> str:
+    if atype == "character":
+        return (f"{prompt}, solo, single person, one character only, full body from head to toe, "
+                "standing, centered, simple light gray background, neutral expression, even lighting, "
+                "8k, highly detailed")
+    if atype == "wardrobe":
+        return (f"{prompt}, a single clothing garment only, ghost mannequin (invisible body), no person, "
+                "product photography, isolated, centered, plain white background, even studio lighting, "
+                "8k, highly detailed")
+    if atype == "prop":
+        return (f"{prompt}, a single object only, no person, product shot, isolated, centered, "
+                "plain white background, even studio lighting, 8k, highly detailed")
+    if atype == "environment":
+        return (f"{prompt}, environment scenery only, no people, wide establishing shot, "
+                "cinematic lighting, 8k, highly detailed")
+    if atype == "styleframe":
+        return f"{prompt}, art-style moodboard, color palette and texture reference, 8k, highly detailed"
+    return f"{prompt}, isolated, centered, plain white background, 8k, highly detailed"
+
+
+# 各类资产的多视角(无 = 单图)。服装/道具也出三视;场景/风格单图。
+_VIEWS = {
+    "character": [("front", "full-body front view facing camera"), ("side", "full-body side view profile"), ("back", "full-body back view from behind")],
+    "wardrobe": [("front", "front view"), ("back", "back view"), ("side", "side view")],
+    "prop": [("front", "front view"), ("side", "side view"), ("3/4", "three-quarter angle view")],
+}
+
+
+def asset_view_prompts(atype: str, prompt: str, style: str = "realistic") -> list[tuple[str, str]]:
+    """该资产要生成的(label, 完整 prompt)列表;多视=多张,否则单张。"""
+    look = _look(style); base = _type_base(atype, prompt); views = _VIEWS.get(atype)
+    if not views:
+        return [("", f"{look}, {base}")]
+    return [(lab, f"{look}, {vp}, {base}") for lab, vp in views]
+
+
+def asset_prompt(atype: str, prompt: str, style: str = "realistic") -> str:
+    """单图增强 prompt(参考图/编辑路径用):取该类型首个视角 + 基底。"""
+    look = _look(style); views = _VIEWS.get(atype)
+    v = (views[0][1] + ", ") if views else ""
+    return f"{look}, {v}{_type_base(atype, prompt)}"
+
+
+def asset_dims(atype: str) -> tuple[int, int]:
+    return {"character": (832, 1216), "wardrobe": (896, 1152), "prop": (1024, 1024),
+            "environment": (1344, 768), "styleframe": (1024, 1024)}.get(atype, (1024, 1024))
 
 
 class RecipeRegistry:

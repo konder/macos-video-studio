@@ -199,11 +199,11 @@ def dispatch(name: str, args: dict, ctx: Context) -> str:
         is_char = atype == "character"
         aid = _nid("char" if is_char else atype[:4])
         from .pipeline import generate_asset_images
-        from .recipes import asset_dims, asset_prompt, character_view_prompts
+        from .recipes import asset_dims, asset_view_prompts
         w, h = asset_dims(atype)
         style = (ctx.store.load().get("meta") or {}).get("style", "realistic")
         seed = random.randint(1, 2_000_000_000)
-        repr_prompt = character_view_prompts(prompt, style)[0][1] if is_char else asset_prompt(atype, prompt, style)
+        repr_prompt = asset_view_prompts(atype, prompt, style)[0][1]
         repr_ir = ctx.recipes.instantiate("char_concept", {"prompt": repr_prompt, "width": w, "height": h, "seed": seed})
         create_op = {"op": "create_character" if is_char else "create_asset", "id": aid,
                      "name": aname, "prompt": prompt, "finals": [], "graph": repr_ir, "width": w, "height": h}
