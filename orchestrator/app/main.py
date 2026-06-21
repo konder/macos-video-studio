@@ -524,13 +524,7 @@ def compose_asset(name: str, body: ComposeIn):
     char_finals = (char or {}).get("finals") or []
     if not char_finals:
         raise HTTPException(400, "角色还没有图")
-    style = (doc.get("meta") or {}).get("style", "realistic")
-    refs = [char_finals[0]]                       # 角色主参考(image1)
-    for cid in body.asset_ids[1:]:                # 服装/道具(image2/3,Qwen-edit 至多 3 图)
-        f = (ent_of(cid) or {}).get("finals") or []
-        if f:
-            refs.append(f[0])
-    refs = refs[:3]
+    comp_finals = [f for cid in body.asset_ids[1:] for f in ((ent_of(cid) or {}).get("finals") or [])[:1]]
     aid = _nid("cmps")
     d = store.load()
     record_change(d, [{"op": "create_asset", "id": aid, "type": "composed", "name": body.name,
@@ -538,29 +532,14 @@ def compose_asset(name: str, body: ComposeIn):
                        "meta": {"composed_from": body.asset_ids}}], author="human", rationale=f"创建人物卡片 {body.name}")
     d["history"][-1]["ts"] = time.time(); store._write(d)
 
-    jid = JOBS.create("card", name, total=1, message="渲染人物卡片…")
-
-    # 参考图:角色首图 + 各组件首图(锁住长相/服装/道具),≤3
-    ref_imgs = [char_finals[0]] + [f for cid in body.asset_ids[1:] for f in ((ent_of(cid) or {}).get("finals") or [])[:1]]
-    ref_imgs = ref_imgs[:3]
-    # 设定卡 prompt:以参考图为准(image 1=角色,其后=服装/道具)
-    look = "anime style, clean cel-shaded" if style == "anime" else "photorealistic, realistic"
-    sheet_prompt = (f"{look} character design sheet of ONE single character. "
-                    f"Use the FIRST reference image as the character's exact face and identity (keep it unchanged), "
-                    f"and dress/equip this same person with the items from the other reference images. "
-                    f"Layout in one image: full-body turnaround (front, side, back views) of this same person; "
-                    f"a row of facial expression headshots of the same face; detail callouts of the equipment and clothing. "
-                    f"consistent identity across all panels, clean plain white background, neat concept-art sheet layout. {body.prompt}")
+    jid = JOBS.create("card", name, total=1, message="拼版人物卡片…")
 
     def work():
         JOBS.update(jid, status="running")
         try:
-            from .cloud import bailian_image
-            from .pipeline import strip_bg
-            JOBS.event(jid, "qwen-image-2.0-pro 渲染设定卡…")
-            data = bailian_image(sheet_prompt, size="1664*928", model="qwen-image-2.0-pro", ref_paths=ref_imgs)
-            path = store.save_asset(data, f"card_{aid}.png")
-            path = strip_bg(path)
+            from .pipeline import compose_card
+            # 本地拼版:角色多视图(原图,长相一致)+ 组件细节 → 一张透明索引卡
+            path = compose_card(char_finals[:3], comp_finals, store, prefix=f"card_{aid}", transparent=True)
             d2 = store.load()
             record_change(d2, [{"op": "set_asset_field", "id": aid, "field": "finals", "value": [path]}],
                           author="human", rationale="人物卡片完成")

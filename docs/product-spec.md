@@ -147,7 +147,8 @@ ReelForge 本质是一个**视频生成的工作流软件**。把"用 AI 生成�
 ### 3.9 组合资产 + 多轮 Agent(2026-06)✅
 - **透明背景**:资产产物经 rembg 后处理统一抠成**透明 PNG**(角色/服装/道具/人物卡片;场景/风格保留背景)。`pipeline.strip_bg`。
 - **「人物卡片」**:原「自定义」组明确为**人物卡片**——角色+服装+道具的聚合体(=组合资产,type=composed);其「＋」直接走组合流程。
-- **人物卡片(原「自定义」)= 百炼 qwen-image-2.0-pro 一次渲染设定卡**:角色身份+组件 → design-sheet prompt → 百炼图像(LiteLLM 网关 pass-through `/token-plan/aigc/multimodal-generation/generation`)一次渲出多面板设定卡 → 抠透明。cloud.bailian_image(支持 ref_paths base64 参考图);/assets/compose 把**角色首图+组件图作参考**传入(image1=角色锁长相),prompt 要求'以第一张参考图为准的同一张脸'→ 锁住身份+服装+道具。`POST /assets/compose`:asset_ids[0]=角色(必选,取多视图),其余=组件(各取首图);
+- **人物卡片(原「自定义」)= 本地拼版索引卡**:`pipeline.compose_card`(PIL)把角色已有三视图(原图,长相一致)+ 组件细节图拼成一张透明索引卡,供后续视频生成参考。**不重渲染**(此前试过百炼 qwen-image-2.0-pro 渲染,身份保持不理想,退回本地拼版)。/assets/compose(角色必选+组件可选)。
+  备注:cloud.bailian_image(经网关调百炼图像,支持 base64 参考图)保留备用,后续可用于其他出图。`POST /assets/compose`:asset_ids[0]=角色(必选,取多视图),其余=组件(各取首图);
   type=composed。详情显示「组成(来源资产)」可点回组件。交互:角色单选必选 + 服装/道具可选。
 - **场景移到分镜**:`场景(environment)` 从「资产」移到「分镜」分组下(仍是 asset type=environment,只改归属位置)。
 - **Agent 多轮**:`/chat` 带近 20 轮历史;`list_assets`/`update_asset` 工具让细化走"改已有"而非新建;
