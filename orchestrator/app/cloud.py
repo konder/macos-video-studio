@@ -14,12 +14,35 @@ from __future__ import annotations
 import json
 import os
 import time
+import urllib.error
 import urllib.request
 from dataclasses import dataclass
 
 
 class CloudNotConfigured(RuntimeError):
     pass
+
+
+def bailian_image(prompt: str, size: str = "1328*1328", model: str = "qwen-image-2.0-pro") -> bytes:
+    """百炼图像生成(经 LiteLLM 网关 pass-through 的 DashScope multimodal-generation)。
+    模型:qwen-image-2.0 / qwen-image-2.0-pro / wan2.7-image(-pro)。返回图片字节。"""
+    from .config import settings
+    base = settings.litellm_base_url.rstrip("/")
+    url = f"{base}/token-plan/aigc/multimodal-generation/generation"
+    body = {"model": model, "input": {"messages": [{"role": "user", "content": [{"text": prompt}]}]},
+            "parameters": {"size": size}}
+    req = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST", headers={
+        "Authorization": f"Bearer {settings.litellm_api_key}", "Content-Type": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=180) as r:
+            d = json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        raise CloudNotConfigured(f"百炼图像 {e.code}: {e.read().decode(errors='replace')[:300]}")
+    img_url = (((d.get("output") or {}).get("choices") or [{}])[0].get("message", {}).get("content") or [{}])[0].get("image")
+    if not img_url:
+        raise CloudNotConfigured(f"百炼未返回图: {str(d)[:300]}")
+    with urllib.request.urlopen(img_url, timeout=180) as r:
+        return r.read()
 
 
 @dataclass

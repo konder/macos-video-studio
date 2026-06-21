@@ -540,36 +540,32 @@ def compose_asset(name: str, body: ComposeIn):
 
     jid = JOBS.create("card", name, total=1, message="渲染人物卡片…")
 
+    # 设定卡 prompt:角色身份 + 组件 + 版面
+    char_desc = (char.get("prompt") or char.get("name") or "a character")
+    comp_names = [ (ent_of(c) or {}).get("name", "") for c in body.asset_ids[1:] ]
+    comp_descs = [ ((ent_of(c) or {}).get("prompt") or (ent_of(c) or {}).get("name", "")) for c in body.asset_ids[1:] ]
+    look = "anime style, clean cel-shaded" if style == "anime" else "photorealistic, realistic"
+    equip = ("，装备/穿戴:" + "、".join(filter(None, comp_descs))) if comp_descs else ""
+    sheet_prompt = (f"{look} character design sheet / model reference sheet of ONE single character. "
+                    f"Character: {char_desc}{equip}. "
+                    f"Layout in one image: full-body turnaround (front, side, back views) of the same character; "
+                    f"a row of facial expression headshots; separate detail callouts of the equipment, clothing and props. "
+                    f"consistent design, clean plain white background, neat professional concept-art sheet layout. {body.prompt}")
+
     def work():
         JOBS.update(jid, status="running")
         try:
-            from .pipeline import compose_card, keyframe_compose, strip_bg
-            from .recipes import _look
-            comfy = _registry.route("edit").client
-            look = _look(style)
-            seed = random.randint(1, 2_000_000_000)
-            # 1) 模型渲染"角色穿戴/持械"的正/侧/背三视(新合体渲染)
-            views = []
-            for lab, vp in [("front", "full-body front view facing camera"),
-                            ("side", "full-body side view profile"),
-                            ("back", "full-body back view from behind")]:
-                p = (f"{look}, {vp}, single person, full body head to toe, standing, "
-                     f"the character in image 1 wearing and holding the items from the other references, "
-                     f"keep face and identity consistent, plain white background, even lighting. {body.prompt}")
-                JOBS.event(jid, f"渲染{lab}视图…")
-                kf = keyframe_compose(comfy, store, refs, p, seed=seed, prefix=f"card_{aid}_{lab}")
-                if kf.get("keyframe"):
-                    views.append(strip_bg(kf["keyframe"]))
-            if not views:
-                raise RuntimeError("三视渲染无产物")
-            # 2) 程序排版成一张设定卡(三视 + 道具/服装细节贴片,透明底)
-            JOBS.event(jid, "排版设定卡…")
-            sheet = compose_card(views, refs[1:], store, prefix=f"sheet_{aid}", transparent=True)
+            from .cloud import bailian_image
+            from .pipeline import strip_bg
+            JOBS.event(jid, "qwen-image-2.0-pro 渲染设定卡…")
+            data = bailian_image(sheet_prompt, size="1664*928", model="qwen-image-2.0-pro")
+            path = store.save_asset(data, f"card_{aid}.png")
+            path = strip_bg(path)
             d2 = store.load()
-            record_change(d2, [{"op": "set_asset_field", "id": aid, "field": "finals", "value": [sheet]}],
+            record_change(d2, [{"op": "set_asset_field", "id": aid, "field": "finals", "value": [path]}],
                           author="human", rationale="人物卡片完成")
             d2["history"][-1]["ts"] = time.time(); store._write(d2)
-            JOBS.update(jid, status="done", message="完成", result={"finals": [sheet]})
+            JOBS.update(jid, status="done", message="完成", result={"finals": [path]})
         except Exception as e:  # noqa: BLE001
             JOBS.update(jid, status="error", error=str(e), message=f"失败: {e}")
 
