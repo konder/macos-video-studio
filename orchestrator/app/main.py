@@ -540,17 +540,17 @@ def compose_asset(name: str, body: ComposeIn):
 
     jid = JOBS.create("card", name, total=1, message="渲染人物卡片…")
 
-    # 设定卡 prompt:角色身份 + 组件 + 版面
-    char_desc = (char.get("prompt") or char.get("name") or "a character")
-    comp_names = [ (ent_of(c) or {}).get("name", "") for c in body.asset_ids[1:] ]
-    comp_descs = [ ((ent_of(c) or {}).get("prompt") or (ent_of(c) or {}).get("name", "")) for c in body.asset_ids[1:] ]
+    # 参考图:角色首图 + 各组件首图(锁住长相/服装/道具),≤3
+    ref_imgs = [char_finals[0]] + [f for cid in body.asset_ids[1:] for f in ((ent_of(cid) or {}).get("finals") or [])[:1]]
+    ref_imgs = ref_imgs[:3]
+    # 设定卡 prompt:以参考图为准(image 1=角色,其后=服装/道具)
     look = "anime style, clean cel-shaded" if style == "anime" else "photorealistic, realistic"
-    equip = ("，装备/穿戴:" + "、".join(filter(None, comp_descs))) if comp_descs else ""
-    sheet_prompt = (f"{look} character design sheet / model reference sheet of ONE single character. "
-                    f"Character: {char_desc}{equip}. "
-                    f"Layout in one image: full-body turnaround (front, side, back views) of the same character; "
-                    f"a row of facial expression headshots; separate detail callouts of the equipment, clothing and props. "
-                    f"consistent design, clean plain white background, neat professional concept-art sheet layout. {body.prompt}")
+    sheet_prompt = (f"{look} character design sheet of ONE single character. "
+                    f"Use the FIRST reference image as the character's exact face and identity (keep it unchanged), "
+                    f"and dress/equip this same person with the items from the other reference images. "
+                    f"Layout in one image: full-body turnaround (front, side, back views) of this same person; "
+                    f"a row of facial expression headshots of the same face; detail callouts of the equipment and clothing. "
+                    f"consistent identity across all panels, clean plain white background, neat concept-art sheet layout. {body.prompt}")
 
     def work():
         JOBS.update(jid, status="running")
@@ -558,7 +558,7 @@ def compose_asset(name: str, body: ComposeIn):
             from .cloud import bailian_image
             from .pipeline import strip_bg
             JOBS.event(jid, "qwen-image-2.0-pro 渲染设定卡…")
-            data = bailian_image(sheet_prompt, size="1664*928", model="qwen-image-2.0-pro")
+            data = bailian_image(sheet_prompt, size="1664*928", model="qwen-image-2.0-pro", ref_paths=ref_imgs)
             path = store.save_asset(data, f"card_{aid}.png")
             path = strip_bg(path)
             d2 = store.load()

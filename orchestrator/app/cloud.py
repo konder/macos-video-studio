@@ -23,13 +23,24 @@ class CloudNotConfigured(RuntimeError):
     pass
 
 
-def bailian_image(prompt: str, size: str = "1328*1328", model: str = "qwen-image-2.0-pro") -> bytes:
+def bailian_image(prompt: str, size: str = "1328*1328", model: str = "qwen-image-2.0-pro",
+                  ref_paths: list[str] | None = None) -> bytes:
     """百炼图像生成(经 LiteLLM 网关 pass-through 的 DashScope multimodal-generation)。
-    模型:qwen-image-2.0 / qwen-image-2.0-pro / wan2.7-image(-pro)。返回图片字节。"""
+    模型:qwen-image-2.0 / qwen-image-2.0-pro / wan2.7-image(-pro)。
+    ref_paths:参考图(本地路径,转 base64 作 image 输入,用于锁角色长相/服装)。返回图片字节。"""
+    import base64
     from .config import settings
     base = settings.litellm_base_url.rstrip("/")
     url = f"{base}/token-plan/aigc/multimodal-generation/generation"
-    body = {"model": model, "input": {"messages": [{"role": "user", "content": [{"text": prompt}]}]},
+    content: list[dict] = []
+    for p in (ref_paths or [])[:3]:
+        try:
+            with open(p.lstrip("./") if not os.path.isabs(p) else p, "rb") as f:
+                content.append({"image": "data:image/png;base64," + base64.b64encode(f.read()).decode()})
+        except Exception:  # noqa: BLE001
+            pass
+    content.append({"text": prompt})
+    body = {"model": model, "input": {"messages": [{"role": "user", "content": content}]},
             "parameters": {"size": size}}
     req = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST", headers={
         "Authorization": f"Bearer {settings.litellm_api_key}", "Content-Type": "application/json"})
