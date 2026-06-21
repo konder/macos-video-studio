@@ -101,7 +101,7 @@ def main():
                         continue
                     url = base + "/view?" + urllib.parse.urlencode({k: item[k] for k in ("filename", "subfolder", "type") if k in item})
                     data = urllib.request.urlopen(url, timeout=120).read()
-                    out_path = a.out or f"t2v_{a.model}_{int(time.time())}.mp4"
+                    out_path = a.out or os.path.expanduser(f"~/t2v_out/t2v_{a.model}_{int(time.time())}.mp4")
                     d = os.path.dirname(out_path)
                     if d:
                         os.makedirs(d, exist_ok=True)
